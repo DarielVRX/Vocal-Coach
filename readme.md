@@ -23,15 +23,13 @@ Abrir en el navegador: `http://localhost:8000`
 
 ---
 
-## Archivos de prueba — Enjambre · Está Dormida (cover Caifanes)
+## Archivos de prueba — Enjambre · Estás Dormida (cover Caifanes)
 
 Para probar el modo karaoke directamente sin separar stems:
 
-```bash
-python setup.py --download
-```
+**[⬇ Descargar stems de prueba](https://drive.google.com/file/d/1f7sKDJgmhVIHGjBFdjDVBHXkm9n8ljpC/view?usp=sharing)** — ZIP con `vocals.wav`, `accompaniment.wav` y `transcripcion.json`
 
-Descarga y extrae `vocals.wav`, `accompaniment.wav` y `transcripcion.json` listos para usar en la app.
+Extraer el ZIP y cargar los archivos en la app desde **🎤 MODO KARAOKE → Archivos locales**.
 
 ---
 
