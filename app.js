@@ -108,11 +108,7 @@ function _pausarRec() {
   setEstado('Pausado', '#ffeb3b');
   actualizarTuner(0, 0);
   if (window._modoKaraoke) detenerInstrumental();
-  if (window._timeline) {
-    window._timeline._tServidorUltimo = null;
-    window._timeline._tLocalUltimo    = null;
-  }
-}
+  if (window._timeline) window._timeline.detener();
 
 function detener() {
   grabando = false;

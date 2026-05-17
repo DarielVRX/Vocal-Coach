@@ -167,8 +167,8 @@ const TimelineDraw = {
         ctx.font = '9px monospace'; ctx.textAlign = 'left';
         const tAhora = this._tAhora();
         for (const p of pls) {
-            const x1 = W - (tAhora - p.t_inicio) * this.PX_SEG;
-            const x2 = W - (tAhora - p.t_fin)    * this.PX_SEG;
+            const x1 = W - (tAhora - p.t_inicio) * this.PX_SEG + this.scrollX;
+            const x2 = W - (tAhora - p.t_fin)    * this.PX_SEG + this.scrollX;
             const y  = this._midiToY(p.mediana_midi, pxS);
             if (x2 < 36 || x1 > W) continue;
             const dur = (p.t_fin - p.t_inicio).toFixed(2);
