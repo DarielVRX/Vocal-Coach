@@ -143,7 +143,9 @@ const TimelineDraw = {
             const x1 = W - (tAhora - s.t_ini) * this.PX_SEG + this.scrollX;
             const x2 = W - (tAhora - s.t_fin) * this.PX_SEG + this.scrollX;
             const y  = this._midiToY(s.midi, pxS);
-            if (x2 < labelW || x1 > W || y < 0 || y > H) continue;
+            if (x2 < labelW && x1 < labelW) continue;
+            if (x1 > W) continue;
+            if (y < 0 || y > H) continue;
             const color = this._colorCents(s.cents);
             ctx.globalAlpha = 1.0;
             switch (s.tipo) {
@@ -188,7 +190,9 @@ const TimelineDraw = {
             const x1 = W - (tAhora - p.t_inicio) * this.PX_SEG + this.scrollX;
             const x2 = W - (tAhora - p.t_fin)    * this.PX_SEG + this.scrollX;
             const y  = this._midiToY(p.mediana_midi, pxS);
-            if (x2 < labelW || x1 > W || y < 0 || y > H) continue;
+            if (x2 < labelW && x1 < labelW) continue;
+            if (x1 > W) continue;
+            if (y < 0 || y > H) continue;
 
             ctx.save();
             ctx.globalAlpha = isRef ? 0.45 : this._opacidadPlateau(p);

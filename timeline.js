@@ -107,7 +107,7 @@ class VocalTimeline {
         this._tLocalUltimo    = null;
         const dur = this._duracionTotal();
         const W   = this.canvas.width - 36;
-        this.PX_SEG  = Math.min(80, W / Math.min(dur, 30));
+        this.PX_SEG  = 80;
         this.scrollX = Math.max(0, dur * this.PX_SEG - W);
     }
 
