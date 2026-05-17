@@ -198,6 +198,14 @@ class DetectorPlateau:
                     )
                     if pl:
                         resultados.append(pl)
+                    else:
+                        # Fallback: construir como plateau aunque sea corto
+                        pl = self._construir_plateau(
+                            f0_seg[inicio:fin], midi_seg[inicio:fin],
+                            t_seg[inicio], t_seg[fin-1]
+                        )
+                        if pl:
+                            resultados.append(pl)
             inicio = fin
 
         # Fusión de portamentos adyacentes
