@@ -64,7 +64,6 @@ async function _iniciarRec() {
 
     stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
 
-    // ── FIX: reusar audioCtxRef en modo karaoke para evitar conflicto de hardware
     ctx = window._modoKaraoke && window._audioCtxRef
     ? window._audioCtxRef
     : new AudioContext({ sampleRate: SR });
@@ -156,7 +155,7 @@ function _workletURL() {
   return URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
 }
 
-// ── Upload pista (flujo servidor) ─────────────────────────────────────────────
+// ── Upload pista ──────────────────────────────────────────────────────────────
 
 function triggerUpload() { document.getElementById('file-input').click(); }
 
@@ -230,7 +229,7 @@ async function exportarSesion() {
       })).json();
       if (!data.success) throw new Error(data.error);
       for (const [nombre, ruta] of Object.entries(data.files)) {
-        const ext = ruta.endsWith('.pdf') ? '.pdf' : '.wav';
+        const ext    = ruta.endsWith('.pdf') ? '.pdf' : '.wav';
         const prefijo = ruta.endsWith('.pdf') ? '/exports/pdf/' : '/exports/';
         await descargarArchivo(ruta, `${nombre}${ext}`, prefijo);
       }

@@ -14,10 +14,9 @@ const SCORE_COLORS = {
   D:  { bg: '#b71c1c', fg: '#ffcdd2', glow: '#f44336' },
 };
 
-const FEEDBACK_COLOR = '#ffeb3b'; // naranja/amarillo para ¡Sube!/¡Baja! y resto
+const FEEDBACK_COLOR = '#ffeb3b';
 
 function mostrarScoreFrase(score, feedback) {
-  // Contenedor anclado debajo del timeline
   let wrap = document.getElementById('score-frase-wrap');
   if (!wrap) {
     wrap = document.createElement('div');
@@ -28,7 +27,6 @@ function mostrarScoreFrase(score, feedback) {
     padding:8px 14px; display:flex; align-items:center; gap:10px;
     transition:opacity 0.4s; min-height:44px;
     `;
-    // Insertar justo después del timeline-wrap
     const tl = document.getElementById('timeline-wrap');
     tl.parentNode.insertBefore(wrap, tl.nextSibling);
   }
@@ -50,9 +48,7 @@ function mostrarScoreFrase(score, feedback) {
   `;
 
   clearTimeout(wrap._timer);
-  wrap._timer = setTimeout(() => {
-    wrap.style.opacity = '0';
-  }, 2000);
+  wrap._timer = setTimeout(() => { wrap.style.opacity = '0'; }, 2000);
 }
 
 // ── Tuner en tiempo real ──────────────────────────────────────────────────────
@@ -80,6 +76,8 @@ function actualizarTuner(midi, cents) {
   label.style.color       = color;
   label.textContent       = `${cents > 0 ? '+' : ''}${Math.round(cents)}¢`;
 }
+
+// ── Estado y barras ───────────────────────────────────────────────────────────
 
 function setEstado(msg, color) {
   const el = document.getElementById('estado-txt');
@@ -134,11 +132,9 @@ function renderDiagnostico(data) {
 
   document.getElementById('diag-wrap').style.display = 'block';
 
-  // Score global
   const scoreGlobal = diag.score_global || '';
   const colScore    = SCORE_COLORS[scoreGlobal] || SCORE_COLORS.D;
-  const gen         = document.getElementById('diag-general');
-  gen.innerHTML = `
+  document.getElementById('diag-general').innerHTML = `
   <span style="
   display:inline-block; padding:4px 20px; border-radius:12px;
   background:${colScore.bg}; color:${colScore.fg};
@@ -166,10 +162,11 @@ function renderDiagnostico(data) {
   </span>
   </div>`).join('');
 
-  // Frases con score individual
   const hasRef = (window._plateausRef?.length > 0) || (window._refPuntos?.length > 0);
   _renderFrasesScore(data.frases, hasRef);
 }
+
+// ── Score por frase ───────────────────────────────────────────────────────────
 
 function _renderFrasesScore(frases, hasRef) {
   let wrap = document.getElementById('diag-frases');
@@ -179,38 +176,71 @@ function _renderFrasesScore(frases, hasRef) {
     wrap.style.cssText = 'margin-top:10px;display:flex;flex-direction:column;gap:4px;';
     document.getElementById('diag-wrap').appendChild(wrap);
   }
-  wrap.innerHTML = frases.map((f, i) => {
+
+  wrap.innerHTML = frases.map(f => {
     const col = SCORE_COLORS[f.score] || SCORE_COLORS.D;
     const fb  = (f.feedback || []).join('  ');
-    const ref = hasRef ? _comparacionRef(f) : '';
+    const cmp = hasRef ? _comparacionRef(f) : null;
+
+    const cmpHtml = cmp ? `
+    <span style="display:inline-flex;align-items:center;gap:3px;flex-shrink:0;">
+    <span style="font-size:0.65rem;color:#555">${cmp.notaRef}</span>
+    <span style="font-size:0.8rem;color:${cmp.color}">${cmp.flecha}</span>
+    <span style="font-size:0.65rem;color:${cmp.color}">${cmp.notaGrab}</span>
+    </span>` : '';
+
     return `
-    <div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #1a1a1a;">
+    <div style="
+    display:flex; align-items:center; gap:8px;
+    padding:4px 0; border-bottom:1px solid #1a1a1a;
+    ">
     <span style="font-size:0.7rem;color:#555;min-width:28px">${f.t_inicio.toFixed(1)}s</span>
     <span style="
     padding:2px 10px; border-radius:6px; font-weight:700; font-size:0.85rem;
-    background:${col.bg}; color:${col.fg};
+    background:${col.bg}; color:${col.fg}; flex-shrink:0;
     ">${f.score}</span>
     <span style="font-size:0.75rem;color:${FEEDBACK_COLOR};flex:1">${fb}</span>
-    ${ref ? `<span style="font-size:0.7rem;color:#7c83fd">${ref}</span>` : ''}
-    </div>
-    `;
+    ${cmpHtml}
+    </div>`;
   }).join('');
 }
 
+// ── Comparación con referencia ────────────────────────────────────────────────
+
 function _comparacionRef(frase) {
-  if (!window._plateausRef?.length) return '';
-  // Plateaus de referencia que solapan con esta frase
+  if (!window._plateausRef?.length) return null;
+
   const refEnFrase = window._plateausRef.filter(
     r => r.t_fin >= frase.t_inicio && r.t_inicio <= frase.t_fin
   );
-  if (!refEnFrase.length) return '';
+  if (!refEnFrase.length) return null;
+
   const midiRef = refEnFrase.reduce((a, r) => a + r.mediana_midi, 0) / refEnFrase.length;
-  const midiFrase = frase.plateaus
-  .filter(p => p.tipo !== 'portamento')
-  .reduce((a, p, _, arr) => a + p.mediana_midi / arr.length, 0);
-  const diff = Math.round(midiFrase - midiRef);
-  if (Math.abs(diff) < 2) return '';
-  return diff > 0 ? `+${diff} st` : `${diff} st`;
+
+  const grabPls = (frase.plateaus || []).filter(p => p.tipo !== 'portamento');
+  if (!grabPls.length) return null;
+  const midiGrab = grabPls.reduce((a, p) => a + p.mediana_midi, 0) / grabPls.length;
+
+  const diff = Math.round(midiGrab - midiRef);
+  if (Math.abs(diff) < 2) return null;
+
+  const NOTAS = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const notaNombre = m => NOTAS[Math.round(m) % 12] + (Math.floor(Math.round(m) / 12) - 1);
+
+  // Color por rango de semitono
+  const abs = Math.abs(diff);
+  const color = abs <= 2 ? '#4caf50'
+  : abs <= 5 ? '#ff9800'
+  :             '#f44336';
+
+  const flecha = diff > 0 ? '↑' : '↓';
+
+  return {
+    notaRef : notaNombre(midiRef),
+    notaGrab: notaNombre(midiGrab),
+    flecha,
+    color,
+  };
 }
 
 // ── Descarga ──────────────────────────────────────────────────────────────────

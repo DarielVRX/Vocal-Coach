@@ -10,31 +10,30 @@
  * Con referencia cargada: salta calibración, usa mediana de plateausRef.
  */
 
-const SEMI_NORMAL   = 12;   // semitonos visibles en estado estable
-const SEMI_OUT      = 20;   // semitonos visibles en zoom out
-const MARGEN_SEMI   = 2;    // margen antes de trigger zoom out
-const CONFIANZA_CV  = 0.12; // coeficiente de variación para declarar calibrado
-const CONFIANZA_MIN = 16;   // mínimo de puntos vocales para calibrar
-const RECALIB_S     = 3.5;  // segundos en zoom out antes de recalibrar
-const ALPHA_CALIB   = 0.06; // suavizado del centro durante calibración
-const ALPHA_ZOOM    = 0.04; // suavizado de visibleSemi (expansión/contracción)
+const SEMI_NORMAL   = 12;
+const SEMI_OUT      = 20;
+const MARGEN_SEMI   = 2;
+const CONFIANZA_CV  = 0.12;
+const CONFIANZA_MIN = 16;
+const RECALIB_S     = 3.5;
+const ALPHA_CALIB   = 0.06;
+const ALPHA_ZOOM    = 0.04;
 
 const TimelineZoom = {
 
     _zoomInit() {
         this._zoom = {
-            fase        : 'calibrando', // 'calibrando' | 'estable' | 'zoomout'
-            visibleSemi : SEMI_NORMAL,
-            centro      : null,         // midi calibrado
-            tZoomOut    : null,         // timestamp entrada a zoomout
-            puntosVocales: [],          // buffer para calibración
+            fase         : 'calibrando',
+            visibleSemi  : SEMI_NORMAL,
+            centro       : null,
+            tZoomOut     : null,
+            puntosVocales: [],
         };
     },
 
-    // Llamado desde agregarPunto — único punto de entrada
     _actualizarZoom(midi, t) {
         const z = this._zoom;
-        if (midi <= 0) return; // silencio
+        if (midi <= 0) return;
 
         // ── Con referencia: calibración instantánea ───────────────────────
         if (z.fase === 'calibrando' && this._centroRef() !== null) {
@@ -47,19 +46,17 @@ const TimelineZoom = {
         // ── Fase calibrando ───────────────────────────────────────────────
         if (z.fase === 'calibrando') {
             z.puntosVocales.push(midi);
-            // Suavizar centro mientras calibra
             if (z.centro === null) z.centro = midi;
             z.centro += (midi - z.centro) * ALPHA_CALIB;
             this.topMidi = z.centro + z.visibleSemi / 2;
 
             if (z.puntosVocales.length >= CONFIANZA_MIN) {
-                const cv = this._cv(z.puntosVocales);
+                const cv      = this._cv(z.puntosVocales);
                 const densidad = this._beatS ? Math.min(1, 1 / this._beatS) : 0.5;
-                const umbral   = CONFIANZA_CV * (1 + densidad * 0.5); // más rápido con tempo rápido
+                const umbral   = CONFIANZA_CV * (1 + densidad * 0.5);
                 if (cv < umbral) {
                     z.centro = this._mediana(z.puntosVocales);
                     z.fase   = 'estable';
-                    // Exponer mediana global para transposición automática
                     window._medianaUsuario = z.centro;
                     console.log(`[Zoom] Calibrado: centro=${z.centro.toFixed(1)} CV=${cv.toFixed(3)}`);
                 }
@@ -75,26 +72,34 @@ const TimelineZoom = {
         const fuera      = Math.abs(midi - z.centro) > (z.visibleSemi / 2 - margenMidi);
 
         if (fuera && z.fase === 'estable') {
-            z.fase      = 'zoomout';
-            z.tZoomOut  = t;
+            z.fase     = 'zoomout';
+            z.tZoomOut = t;
         } else if (!fuera && z.fase === 'zoomout') {
-            z.fase      = 'estable';
-            z.tZoomOut  = null;
+            z.fase     = 'estable';
+            z.tZoomOut = null;
         } else if (z.fase === 'zoomout' && (t - z.tZoomOut) >= RECALIB_S) {
-            // Recalibrar con puntos recientes
-            const recientes = this.puntos
-            .filter(p => p.midi > 0 && p.t >= t - 10)
-            .map(p => p.midi);
-            if (recientes.length >= CONFIANZA_MIN) {
-                z.centro = this._mediana(recientes);
-                z.fase   = 'estable';
+            const centroRef = this._centroRef();
+            if (centroRef !== null) {
+                z.centro   = centroRef;
+                z.fase     = 'estable';
                 z.tZoomOut = null;
-                console.log(`[Zoom] Recalibrado: centro=${z.centro.toFixed(1)}`);
+                console.log(`[Zoom] Recalibrado → ref: centro=${z.centro.toFixed(1)}`);
+            } else {
+                const recientes = this.puntos
+                .filter(p => p.midi > 0 && p.t >= t - 10)
+                .map(p => p.midi);
+                if (recientes.length >= CONFIANZA_MIN) {
+                    z.centro   = this._mediana(recientes);
+                    z.fase     = 'estable';
+                    z.tZoomOut = null;
+                    console.log(`[Zoom] Recalibrado: centro=${z.centro.toFixed(1)}`);
+                }
             }
         }
 
-        // Centrar siempre en el centro calibrado
-        const topTarget = z.centro + z.visibleSemi / 2;
+        // Centrar en referencia si existe, si no en centro calibrado
+        const centroRef = this._centroRef();
+        const topTarget = (centroRef !== null ? centroRef : z.centro) + z.visibleSemi / 2;
         this.topMidi += (topTarget - this.topMidi) * 0.08;
         this.topMidi  = Math.max(this.MIDI_MIN + z.visibleSemi,
                                  Math.min(this.MIDI_MAX, this.topMidi));
