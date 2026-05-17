@@ -235,6 +235,8 @@ async def upload_karaoke(file: UploadFile = File(...)):
 
 @app.post("/isolate")
 async def isolate_track(request: dict):
+    if not ISOLATOR_AVAILABLE:
+        return {"success": False, "error": "Separación no disponible en este entorno"}
     try:
         file_path = request.get("file_path")
         if not file_path or not os.path.exists(file_path):
