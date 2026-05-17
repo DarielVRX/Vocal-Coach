@@ -3,7 +3,7 @@
  */
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const WS_URL = `ws://${location.hostname}:8000/ws/audio`;
+const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/audio`;
 const SR = 44100, CHUNK = 2048;
 
 // ── Estado ────────────────────────────────────────────────────────────────────
