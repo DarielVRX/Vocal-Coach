@@ -58,20 +58,19 @@ function mostrarScoreFrase(score, feedback) {
 // ── Tuner en tiempo real ──────────────────────────────────────────────────────
 
 function actualizarTuner(midi, cents) {
-  const wrap   = document.getElementById('tuner-wrap');
   const needle = document.getElementById('tuner-needle');
   const label  = document.getElementById('tuner-label');
-  if (!wrap || !needle || !label) return;
+  if (!needle || !label) return;
 
   if (!midi || midi === 0) {
-    wrap.style.display = 'none';
+    needle.style.background = '#333';
+    needle.style.left       = '50%';
+    label.style.color       = '#555';
+    label.textContent       = '—';
     return;
   }
 
-  wrap.style.display = 'block';
-
-  // cents va de -50 a +50, mapeado a 5%-95% del ancho
-  const pct   = 50 + (cents / 50) * 45; // 5% margen cada lado
+  const pct   = 50 + (cents / 50) * 45;
   const color = Math.abs(cents) < 10 ? '#4caf50'
   : Math.abs(cents) < 25 ? '#cddc39'
   : Math.abs(cents) < 45 ? '#ff9800' : '#f44336';
