@@ -109,6 +109,7 @@ function _pausarRec() {
   actualizarTuner(0, 0);
   if (window._modoKaraoke) detenerInstrumental();
   if (window._timeline) window._timeline.detener();
+}
 
 function detener() {
   grabando = false;
