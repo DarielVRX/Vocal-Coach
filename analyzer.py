@@ -35,6 +35,10 @@ from pipeline import (
 
 CENTS_PLATEAU      = 30.0
 DUR_PLATEAU_MS     = 150.0
+PORTAMENTO_DUR_MIN_MS  = 60.0
+PORTAMENTO_SALTO_MIN   = 1.0
+PORTAMENTO_SALTO_MAX   = 12.0
+PORTAMENTO_MONOTONIA   = 0.65
 VIBRATO_HZ_MIN     = 4.5
 VIBRATO_HZ_MAX     = 7.5
 VIBRATO_MIN_CICLOS = 2
@@ -189,7 +193,8 @@ class DetectorPlateau:
                 if fin - inicio >= 2:
                     pl = self._construir_portamento(
                         f0_seg[inicio:fin], midi_seg[inicio:fin],
-                        t_seg[inicio], t_seg[fin-1]
+                        t_seg[inicio], t_seg[fin-1],
+                        prev_midi=resultados[-1].mediana_midi if resultados else None,
                     )
                     if pl:
                         resultados.append(pl)
@@ -257,11 +262,27 @@ class DetectorPlateau:
         )
 
     def _construir_portamento(self, f0: np.ndarray, midi: np.ndarray,
-                               t_ini: float, t_fin: float) -> Plateau | None:
+                               t_ini: float, t_fin: float,
+                               prev_midi: float | None = None) -> Plateau | None:
         if len(f0) < 2:
+            return None
+        dur_ms = (t_fin - t_ini) * 1000.0
+        if dur_ms < PORTAMENTO_DUR_MIN_MS:
             return None
         mediana_f0   = float(np.median(f0))
         mediana_midi = float(np.median(midi))
+        if prev_midi is not None:
+            salto = abs(mediana_midi - prev_midi)
+            if salto < PORTAMENTO_SALTO_MIN or salto > PORTAMENTO_SALTO_MAX:
+                return None
+        if len(midi) >= 3:
+            diffs     = np.diff(midi)
+            n_pos     = np.sum(diffs > 0)
+            n_neg     = np.sum(diffs < 0)
+            n_total   = len(diffs)
+            monotonia = max(n_pos, n_neg) / (n_total + 1e-9)
+            if monotonia < PORTAMENTO_MONOTONIA:
+                return None
         nota, octava, cents, _ = hz_a_nota(mediana_f0)
         if nota is None:
             return None

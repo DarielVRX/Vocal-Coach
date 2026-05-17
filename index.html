@@ -240,7 +240,16 @@ h1 { font-size: 1.1rem; color: #888; letter-spacing: 3px; margin-top: 6px; }
 </div>
 
 <div id="timeline-wrap">
-  <div id="timeline-titulo">TIMELINE VOCAL</div>
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px 4px;">
+    <span id="timeline-titulo" style="font-size:0.7rem;color:#555;letter-spacing:1px;">TIMELINE VOCAL</span>
+    <label style="display:flex;align-items:center;gap:6px;font-size:0.7rem;color:#555;">
+      <span>🔍</span>
+      <input id="zoom-slider" type="range" min="50" max="300" value="80"
+        style="width:90px;accent-color:#7c83fd;cursor:pointer;"
+        oninput="if(window._timeline){window._timeline.PX_SEG=+this.value;document.getElementById('zoom-val').textContent=this.value+'px';}">
+      <span id="zoom-val" style="min-width:36px;color:#7c83fd;font-variant-numeric:tabular-nums;">80px</span>
+    </label>
+  </div>
   <canvas id="vocal-canvas" style="display:block;width:100%;"></canvas>
 </div>
 
