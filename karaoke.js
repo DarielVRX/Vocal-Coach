@@ -33,7 +33,10 @@ function _desactivarKaraoke() {
   if (_instrSource) { try { _instrSource.stop(); } catch(e) {} _instrSource = null; }
   if (window._audioCtxRef) { window._audioCtxRef.close(); window._audioCtxRef = null; }
   window._instrStartTime = 0;
-  window._refPuntos = null; window._refPalabras = null;
+  window._refPuntos   = null;
+  window._refPalabras = null;
+  window._plateausRef = [];
+  window._beatS       = null;
   if (window._timeline) {
     window._timeline.plateausRef = [];
     window._timeline.puntosRef   = [];

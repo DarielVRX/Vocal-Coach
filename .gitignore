@@ -1,0 +1,17 @@
+# Audio y exports generados
+stems/
+exports/
+uploads/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Modelos descargados
+*.pt
+*.pth
+
+# Logs
+*.log

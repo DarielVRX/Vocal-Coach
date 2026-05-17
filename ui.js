@@ -17,41 +17,42 @@ const SCORE_COLORS = {
 const FEEDBACK_COLOR = '#ffeb3b'; // naranja/amarillo para ¡Sube!/¡Baja! y resto
 
 function mostrarScoreFrase(score, feedback) {
-  let el = document.getElementById('score-frase');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'score-frase';
-    el.style.cssText = `
-    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
-    display:flex; flex-direction:column; align-items:center; gap:8px;
-    pointer-events:none; z-index:999; transition:opacity 0.4s;
+  // Contenedor anclado debajo del timeline
+  let wrap = document.getElementById('score-frase-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'score-frase-wrap';
+    wrap.style.cssText = `
+    width:100%; max-width:420px;
+    background:#0d0d0d; border-top:1px solid #1a1a1a;
+    padding:8px 14px; display:flex; align-items:center; gap:10px;
+    transition:opacity 0.4s; min-height:44px;
     `;
-    document.body.appendChild(el);
+    // Insertar justo después del timeline-wrap
+    const tl = document.getElementById('timeline-wrap');
+    tl.parentNode.insertBefore(wrap, tl.nextSibling);
   }
 
   const col = SCORE_COLORS[score] || SCORE_COLORS.D;
-  el.innerHTML = `
-  <div style="
-  font-size:3.5rem; font-weight:900; letter-spacing:2px;
+  wrap.style.opacity = '1';
+  wrap.innerHTML = `
+  <span style="
+  font-size:1.8rem; font-weight:900; letter-spacing:1px;
   color:${col.fg}; background:${col.bg};
-  padding:8px 28px; border-radius:16px;
-  box-shadow:0 0 24px ${col.glow}88;
+  padding:2px 14px; border-radius:10px;
+  box-shadow:0 0 12px ${col.glow}66;
+  font-family:'Segoe UI',sans-serif; flex-shrink:0;
+  ">${score}</span>
+  <span style="
+  font-size:0.9rem; font-weight:700; color:${FEEDBACK_COLOR};
   font-family:'Segoe UI',sans-serif;
-  ">${score}</div>
-  ${feedback.map(f => `
-    <div style="
-    font-size:1rem; font-weight:700; color:${FEEDBACK_COLOR};
-    background:#00000088; padding:4px 14px; border-radius:8px;
-    font-family:'Segoe UI',sans-serif;
-    ">${f}</div>
-    `).join('')}
-    `;
-    el.style.opacity = '1';
+  ">${feedback.join('  ')}</span>
+  `;
 
-    clearTimeout(el._timer);
-    el._timer = setTimeout(() => {
-      el.style.opacity = '0';
-    }, 2000);
+  clearTimeout(wrap._timer);
+  wrap._timer = setTimeout(() => {
+    wrap.style.opacity = '0';
+  }, 2000);
 }
 
 // ── Estado ────────────────────────────────────────────────────────────────────

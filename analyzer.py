@@ -423,7 +423,12 @@ def simplificar_plateaus(plateaus: list, gap_max_s: float = 0.020,
             prev     = fusionados[-1]
             mismo    = round(curr.mediana_midi) == round(prev.mediana_midi)
             contiguo = (curr.t_inicio - prev.t_fin) < gap_max_s
-            if mismo and contiguo:
+            # Fusión plateau+plateau mismo semitono aunque gap sea mayor
+            mismo_tipo_plateau = (prev.tipo in ("plateau","vibrato") and
+                                  curr.tipo in ("plateau","vibrato") and
+                                  round(curr.mediana_midi) == round(prev.mediana_midi) and
+                                  (curr.t_inicio - prev.t_fin) < 0.150)
+            if mismo and contiguo or mismo_tipo_plateau:
                 f0m = np.array(prev.f0_series + curr.f0_series, dtype=np.float32)
                 fusionados[-1] = Plateau(
                     t_inicio     = prev.t_inicio,
