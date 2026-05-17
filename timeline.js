@@ -269,7 +269,7 @@ class VocalTimeline {
             return this._segmentos[this._segmentos.length-1].t_fin;
         if ((this.plateaus || []).length > 0)
             return this.plateaus[this.plateaus.length-1].t_fin;
-        return this._duracionTotal();
+        return 0; // ← era _duracionTotal(), causaba movimiento sin grabación
     }
 
     _xDeAbsoluto(t, W) {
