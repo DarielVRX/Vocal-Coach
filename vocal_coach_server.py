@@ -21,7 +21,12 @@ from fastapi.staticfiles import StaticFiles
 
 from analyzer import DetectorPlateau, Plateau
 from diagnostico import generar_diagnostico
-from isolator_service import get_isolator
+try:
+    from isolator_service import get_isolator
+    ISOLATOR_AVAILABLE = True
+except ImportError:
+    ISOLATOR_AVAILABLE = False
+    def get_isolator(): return None
 from pipeline import detectar_f0, f0_a_tiempos, hz_a_midi, hz_a_nota
 from session import Sesion
 from session_export import get_exporter
