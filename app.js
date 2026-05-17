@@ -34,6 +34,7 @@ function _manejarMsg(d) {
     actualizarRMS(d.rms || 0);
     if (d.midi && window._timeline)
       window._timeline.agregarPunto(d.midi, d.cents || 0, d.t);
+    actualizarTuner(d.midi || 0, d.cents || 0);
     if (d.score_frase)
       mostrarScoreFrase(d.score_frase, d.feedback_frase || []);
     setEstado(`Grabando — Frases: ${d.frases || 0}`, '#f44336');
@@ -105,6 +106,7 @@ function _pausarRec() {
   document.getElementById('btn-rec').textContent = '● REC';
   document.getElementById('btn-rec').classList.remove('grabando');
   setEstado('Pausado', '#ffeb3b');
+  actualizarTuner(0, 0);
   if (window._modoKaraoke) detenerInstrumental();
 }
 
@@ -118,6 +120,7 @@ function detener() {
   document.getElementById('btn-rec').textContent = '● REC';
   document.getElementById('btn-rec').classList.remove('grabando');
   document.getElementById('btn-stop').classList.remove('activo');
+  actualizarTuner(0, 0);
   actualizarRMS(0);
 
   if (window._modoKaraoke) detenerInstrumental();

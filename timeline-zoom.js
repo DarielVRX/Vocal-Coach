@@ -59,6 +59,8 @@ const TimelineZoom = {
                 if (cv < umbral) {
                     z.centro = this._mediana(z.puntosVocales);
                     z.fase   = 'estable';
+                    // Exponer mediana global para transposición automática
+                    window._medianaUsuario = z.centro;
                     console.log(`[Zoom] Calibrado: centro=${z.centro.toFixed(1)} CV=${cv.toFixed(3)}`);
                 }
             }
@@ -81,8 +83,8 @@ const TimelineZoom = {
         } else if (z.fase === 'zoomout' && (t - z.tZoomOut) >= RECALIB_S) {
             // Recalibrar con puntos recientes
             const recientes = this.puntos
-                .filter(p => p.midi > 0 && p.t >= t - 10)
-                .map(p => p.midi);
+            .filter(p => p.midi > 0 && p.t >= t - 10)
+            .map(p => p.midi);
             if (recientes.length >= CONFIANZA_MIN) {
                 z.centro = this._mediana(recientes);
                 z.fase   = 'estable';
@@ -120,7 +122,7 @@ const TimelineZoom = {
     _cv(arr) {
         const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
         const std  = Math.sqrt(arr.map(x => (x - mean) ** 2)
-                               .reduce((a, b) => a + b, 0) / arr.length);
+        .reduce((a, b) => a + b, 0) / arr.length);
         return std / (mean + 1e-9);
     },
 };

@@ -52,17 +52,12 @@ class VocalTimeline {
         this.dragStartX = 0;
         this.dragStartY = 0;
 
-        // Suavizado en tiempo real
-        this._ventana   = [];
-        this._segmentos = [];
-        this._beatS     = null;
-        this._segIni    = null;
-
-        // Detección de tempo (modo free)
-        this._tempoOk       = false;
-        this._onsets        = [];
-        this._lastVoiced    = false;
-        this._tempoEstimado = null;
+        // Segmentos en tiempo real (1s ventana deslizante)
+        this._ventana      = [];
+        this._segmentos    = [];
+        this._segActual    = null;
+        this._segIni       = null;
+        this._ventanaT     = 1.0;
 
         // Debug
         this.DEBUG_REF     = true;
@@ -116,8 +111,17 @@ class VocalTimeline {
     }
 
     detener() {
-        this._cerrarSegmento(this._tAhora());
+        // Cerrar ventana RT activa
+        if (this._segActual) {
+            this._segmentos.push(this._segActual);
+            this._segActual = null;
+        }
         this.grabando = false;
+
+        // Posicionar scroll al final para ver los últimos segmentos
+        const dur  = this._duracionTotal();
+        const visS = (this.canvas.width - 36) / this.PX_SEG;
+        this.scrollX = Math.max(0, dur * this.PX_SEG - (this.canvas.width - 36));
     }
 
     cargarLetras(palabras) { this.palabras = palabras; }
@@ -149,60 +153,105 @@ class VocalTimeline {
         this._tServidorUltimo = t;
         this._tLocalUltimo    = performance.now() / 1000;
 
-        if (!this._tempoOk) this._detectarOnset(p);
-        if (this._tempoOk)  this._procesarVentana(p);
-
+        if (midi > 0) this._procesarPuntoRT(p);
         this._actualizarZoom(midi, t);
     }
 
-    // ── Tempo (modo free) ─────────────────────────────────────────────────
+    // ── Segmentación en tiempo real (ventana 1s deslizante) ───────────────
 
-    _detectarOnset(p) {
-        const hayVoz = p.midi > 0;
-        if (hayVoz && !this._lastVoiced) {
-            this._onsets.push(p.t);
-            if (this._onsets.length >= 8) this._evaluarTempo();
-        }
-        this._lastVoiced = hayVoz;
-    }
-
-    _evaluarTempo() {
-        const intervals = [];
-        for (let i = 1; i < this._onsets.length; i++)
-            intervals.push(this._onsets[i] - this._onsets[i-1]);
-        const mean = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-        const std  = Math.sqrt(intervals.map(x => (x - mean) ** 2)
-        .reduce((a, b) => a + b, 0) / intervals.length);
-        if (std / mean < 0.20) {
-            this._beatS         = mean;
-            this._tempoOk       = true;
-            this._tempoEstimado = Math.round(60 / mean);
-            this._segIni        = this._onsets[this._onsets.length - 1];
-            console.log(`[Timeline] Tempo: ${this._tempoEstimado} BPM`);
-        }
-    }
-
-    // ── Suavizado por ventana ─────────────────────────────────────────────
-
-    _procesarVentana(p) {
-        if (!this._beatS) return;
-        if (this._segIni === null) this._segIni = p.t;
+    _procesarPuntoRT(p) {
         this._ventana.push(p);
-        if (p.t - this._segIni >= this._beatS) this._cerrarSegmento(p.t);
+        if (this._segIni === null) this._segIni = p.t;
+
+        // Cerrar ventana cada _ventanaT segundos
+        if (p.t - this._segIni >= this._ventanaT) {
+            this._cerrarVentanaRT(p.t);
+        }
     }
 
-    _cerrarSegmento(tFin) {
-        if (!this._ventana.length || this._segIni === null) return;
-        const midis = this._ventana.filter(p => p.midi > 0).map(p => p.midi);
-        if (midis.length === 0) { this._ventana = []; this._segIni = tFin; return; }
-        midis.sort((a, b) => a - b);
+    _cerrarVentanaRT(tFin) {
+        const voiced = this._ventana.filter(p => p.midi > 0);
+        if (voiced.length === 0) {
+            this._ventana = [];
+            this._segIni  = tFin;
+            return;
+        }
+
+        const midis = voiced.map(p => p.midi).sort((a, b) => a - b);
+        const cents = voiced.map(p => p.cents).sort((a, b) => a - b);
         const medMidi  = midis[Math.floor(midis.length / 2)];
-        const cents    = this._ventana.filter(p => p.midi > 0).map(p => p.cents);
-        cents.sort((a, b) => a - b);
         const medCents = cents[Math.floor(cents.length / 2)];
-        this._segmentos.push({ t_ini: this._segIni, t_fin: tFin, midi: medMidi, cents: medCents });
+        const varianza = this._varianza(voiced.map(p => p.midi));
+        const tipo     = this._clasificarTipoRT(voiced, varianza);
+
+        const nuevo = {
+            t_ini : this._segIni,
+            t_fin : tFin,
+            midi  : medMidi,
+            cents : medCents,
+            tipo  : tipo,
+            varianza,
+        };
+
+        // Intentar fusionar con segmento actual
+        if (this._segActual && Math.round(this._segActual.midi) === Math.round(medMidi)) {
+            // Mismo semitono → extender y recalcular tipo
+            this._segActual.t_fin  = tFin;
+            this._segActual.varianza = (this._segActual.varianza + varianza) / 2;
+            this._segActual.tipo   = this._clasificarTipoAcumulado(this._segActual);
+        } else {
+            // Semitono diferente → confirmar actual, iniciar nuevo
+            if (this._segActual) {
+                // Detectar portamento entre anterior y nuevo
+                const salto = Math.abs(medMidi - this._segActual.midi);
+                if (salto >= 1 && salto <= 6) {
+                    this._segmentos.push({
+                        ...this._segActual,
+                        t_fin: nuevo.t_ini,
+                    });
+                    this._segmentos.push({
+                        t_ini : this._segActual.t_fin,
+                        t_fin : nuevo.t_ini,
+                        midi  : (this._segActual.midi + medMidi) / 2,
+                                         cents : medCents,
+                                         tipo  : 'portamento',
+                                         varianza: 0,
+                    });
+                } else {
+                    this._segmentos.push(this._segActual);
+                }
+            }
+            this._segActual = nuevo;
+        }
+
         this._ventana = [];
         this._segIni  = tFin;
+    }
+
+    _clasificarTipoRT(puntos, varianza) {
+        if (puntos.length < 4) return 'plateau';
+        // Vibrato: oscilación periódica detectada por cruces de mediana
+        const midis   = puntos.map(p => p.midi);
+        const med     = midis.reduce((a, b) => a + b, 0) / midis.length;
+        let cruces    = 0;
+        for (let i = 1; i < midis.length; i++)
+            if ((midis[i-1] - med) * (midis[i] - med) < 0) cruces++;
+            const frecCruces = cruces / ((puntos[puntos.length-1].t - puntos[0].t) || 1);
+        if (frecCruces > 6 && varianza > 0.002) return 'vibrato';
+        if (varianza > 0.015) return 'inestable';
+        return 'plateau';
+    }
+
+    _clasificarTipoAcumulado(seg) {
+        // Con más datos acumulados, refinar tipo
+        if (seg.varianza > 0.015) return 'inestable';
+        if (seg.varianza > 0.004) return 'vibrato';
+        return 'plateau';
+    }
+
+    _varianza(arr) {
+        const m = arr.reduce((a, b) => a + b, 0) / arr.length;
+        return arr.reduce((a, b) => a + (b - m) ** 2, 0) / arr.length / (m * m + 1e-9);
     }
 
     // ── Scroll ────────────────────────────────────────────────────────────
@@ -269,7 +318,7 @@ class VocalTimeline {
             return this._segmentos[this._segmentos.length-1].t_fin;
         if ((this.plateaus || []).length > 0)
             return this.plateaus[this.plateaus.length-1].t_fin;
-        return 0; // ← era _duracionTotal(), causaba movimiento sin grabación
+        return 0;
     }
 
     _xDeAbsoluto(t, W) {

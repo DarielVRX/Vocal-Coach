@@ -29,10 +29,8 @@ const TimelineDraw = {
         if (this.DEBUG_REC) {
             if ((this.plateaus || []).length > 0)
                 this._drawPlateaus(W, H, this.plateaus, false);
-            else if (this._tempoOk)
-                this._drawSegmentos(W, H);
             else
-                this._drawLinea(W, H, this.puntos || [], false);
+                this._drawSegmentos(W, H);
         }
 
         this._drawLetras(W, H);
@@ -119,30 +117,44 @@ const TimelineDraw = {
         const tAhora = this._tAhora();
         const pxS    = this._pxSemi();
         ctx.save();
-        ctx.lineWidth = 4; ctx.lineCap = 'round';
+
+        // Segmentos confirmados
         for (const s of this._segmentos) {
             const x1 = W - (tAhora - s.t_ini) * this.PX_SEG;
             const x2 = W - (tAhora - s.t_fin) * this.PX_SEG;
             const y  = this._midiToY(s.midi, pxS);
             if (x2 < labelW || x1 > W || y < 0 || y > H) continue;
-            ctx.strokeStyle = this._colorCents(s.cents);
-            ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke();
-            ctx.fillStyle = this._colorCents(s.cents);
-            ctx.beginPath(); ctx.arc(x1, y, 3, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(x2, y, 3, 0, Math.PI*2); ctx.fill();
+            const color = this._colorCents(s.cents);
+            ctx.globalAlpha = 1.0;
+            switch (s.tipo) {
+                case 'vibrato':
+                    this._drawVibrato(x1, x2, y, color, false, pxS);
+                    break;
+                case 'inestable':
+                    this._drawInestable(x1, x2, y, color, false, s.varianza, pxS);
+                    break;
+                case 'portamento':
+                    ctx.strokeStyle = '#6a7a8a'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+                    ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke();
+                    break;
+                default: // plateau
+                    this._drawPlateauEstable(x1, x2, y, color, false);
+            }
         }
-        if (this._ventana.length > 1 && this._segIni !== null) {
-            const midis = this._ventana.filter(p => p.midi > 0).map(p => p.midi);
-            if (midis.length > 0) {
-                midis.sort((a, b) => a - b);
-                const med = midis[Math.floor(midis.length / 2)];
-                const x1  = W - (tAhora - this._segIni) * this.PX_SEG;
-                const y   = this._midiToY(med, pxS);
-                ctx.globalAlpha = 0.4;
-                ctx.strokeStyle = '#888';
+
+        // Segmento en construcción (preview semitransparente)
+        if (this._segActual) {
+            const s  = this._segActual;
+            const x1 = W - (tAhora - s.t_ini) * this.PX_SEG;
+            const y  = this._midiToY(s.midi, pxS);
+            if (x1 < W && y >= 0 && y <= H) {
+                ctx.globalAlpha = 0.45;
+                const color = this._colorCents(s.cents);
+                ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.lineCap = 'round';
                 ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(W, y); ctx.stroke();
             }
         }
+
         ctx.restore();
     },
 

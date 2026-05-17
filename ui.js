@@ -55,7 +55,32 @@ function mostrarScoreFrase(score, feedback) {
   }, 2000);
 }
 
-// ── Estado ────────────────────────────────────────────────────────────────────
+// ── Tuner en tiempo real ──────────────────────────────────────────────────────
+
+function actualizarTuner(midi, cents) {
+  const wrap   = document.getElementById('tuner-wrap');
+  const needle = document.getElementById('tuner-needle');
+  const label  = document.getElementById('tuner-label');
+  if (!wrap || !needle || !label) return;
+
+  if (!midi || midi === 0) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  wrap.style.display = 'block';
+
+  // cents va de -50 a +50, mapeado a 5%-95% del ancho
+  const pct   = 50 + (cents / 50) * 45; // 5% margen cada lado
+  const color = Math.abs(cents) < 10 ? '#4caf50'
+  : Math.abs(cents) < 25 ? '#cddc39'
+  : Math.abs(cents) < 45 ? '#ff9800' : '#f44336';
+
+  needle.style.left       = `${Math.max(2, Math.min(98, pct))}%`;
+  needle.style.background = color;
+  label.style.color       = color;
+  label.textContent       = `${cents > 0 ? '+' : ''}${Math.round(cents)}¢`;
+}
 
 function setEstado(msg, color) {
   const el = document.getElementById('estado-txt');

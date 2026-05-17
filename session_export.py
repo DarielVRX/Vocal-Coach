@@ -164,18 +164,43 @@ class SessionExporter:
                 ax.text(x, y, v, ha='left', va='center',
                         fontsize=11, color='#eee', transform=ax.transAxes)
 
-            # Score por frase (mini timeline)
+            # Score por frase con nota ref vs grabación
             ax.text(0.5, 0.30, "Score por frase", ha='center', va='center',
                     fontsize=10, color='#555', transform=ax.transAxes)
+
+            NOTAS_PDF = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B']
+
+            def midi_a_nombre(m):
+                m = int(round(m))
+                return f"{NOTAS_PDF[m % 12]}{m // 12 - 1}"
+
             for i, f in enumerate(frases):
                 x = 0.08 + (i % 12) * 0.07
-                y = 0.25 - (i // 12) * 0.06
+                y = 0.25 - (i // 12) * 0.07
                 col = SCORE_COLORS.get(f.score, "#aaa")
+
+                # Score badge
                 ax.text(x, y, f.score, ha='center', va='center',
                         fontsize=9, fontweight='bold', color=col,
                         transform=ax.transAxes,
                         bbox=dict(boxstyle='round,pad=0.2', facecolor='#1a1a1a',
                                   edgecolor=col, linewidth=0.8))
+
+                # Nota ref vs grabación si hay referencia
+                ref_en_frase = [r for r in plateaus_ref
+                                if r.get('t_fin', 0) >= f.t_inicio
+                                and r.get('t_inicio', 0) <= f.t_fin]
+                pl_frase = [p for p in f.plateaus if p.tipo != 'portamento']
+
+                if ref_en_frase and pl_frase:
+                    midi_ref  = sum(r['mediana_midi'] for r in ref_en_frase) / len(ref_en_frase)
+                    midi_grab = sum(p.mediana_midi for p in pl_frase) / len(pl_frase)
+                    diff      = midi_grab - midi_ref
+                    flecha    = '✓' if abs(diff) < 1.5 else ('↑' if diff > 0 else '↓')
+                    color_ref = '#4caf50' if abs(diff) < 1.5 else ('#ff9800' if abs(diff) < 3 else '#f44336')
+                    label_ref = f"{midi_a_nombre(midi_ref)}{flecha}{midi_a_nombre(midi_grab)}"
+                    ax.text(x, y - 0.025, label_ref, ha='center', va='center',
+                            fontsize=6, color=color_ref, transform=ax.transAxes)
 
             # Leyenda tipos
             y_ley = 0.10

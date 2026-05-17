@@ -158,6 +158,31 @@ h1 { font-size: 1.1rem; color: #888; letter-spacing: 3px; margin-top: 6px; }
   <div id="rms-bg"><div id="rms-bar"></div></div>
 </div>
 
+<div id="tuner-wrap" style="width:100%;max-width:420px;display:none;">
+  <div id="tuner-bg" style="
+    position:relative; width:100%; height:20px;
+    background:#111; border-radius:10px; overflow:hidden;
+  ">
+    <!-- Zona central verde -->
+    <div style="
+      position:absolute; left:50%; transform:translateX(-50%);
+      width:10%; height:100%; background:#1b3a1b; border-radius:4px;
+    "></div>
+    <!-- Aguja -->
+    <div id="tuner-needle" style="
+      position:absolute; top:0; width:3px; height:100%;
+      background:#4caf50; border-radius:2px;
+      left:50%; transform:translateX(-50%);
+      transition:left 0.08s ease-out, background 0.15s;
+    "></div>
+    <!-- Etiqueta cents -->
+    <div id="tuner-label" style="
+      position:absolute; right:8px; top:50%; transform:translateY(-50%);
+      font-size:0.7rem; color:#555; font-variant-numeric:tabular-nums;
+    ">0¢</div>
+  </div>
+</div>
+
 <div id="btns">
   <button class="btn" id="btn-rec"  onclick="toggleRec()">● REC</button>
   <button class="btn" id="btn-stop" onclick="detener()">■ STOP</button>
