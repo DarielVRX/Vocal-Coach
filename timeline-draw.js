@@ -95,7 +95,7 @@ const TimelineDraw = {
 
         let prev = null;
         for (const p of puntos) {
-            const x = W - (tAhora - p.t) * this.PX_SEG;
+            const x = W - (tAhora - p.t) * this.PX_SEG + this.scrollX;
             const y = this._midiToY(p.midi, pxS);
             const vis = x >= labelW && x <= W && y >= 0 && y <= H;
             const color = isRef ? '#7c9fbf' : this._colorCents(p.cents);
@@ -120,8 +120,8 @@ const TimelineDraw = {
 
         // Segmentos confirmados
         for (const s of this._segmentos) {
-            const x1 = W - (tAhora - s.t_ini) * this.PX_SEG;
-            const x2 = W - (tAhora - s.t_fin) * this.PX_SEG;
+            const x1 = W - (tAhora - s.t_ini) * this.PX_SEG + this.scrollX;
+            const x2 = W - (tAhora - s.t_fin) * this.PX_SEG + this.scrollX;
             const y  = this._midiToY(s.midi, pxS);
             if (x2 < labelW || x1 > W || y < 0 || y > H) continue;
             const color = this._colorCents(s.cents);
@@ -188,8 +188,8 @@ const TimelineDraw = {
 
         for (let i = 0; i < plateaus.length; i++) {
             const p  = plateaus[i];
-            const x1 = W - (tAhora - p.t_inicio) * this.PX_SEG;
-            const x2 = W - (tAhora - p.t_fin)    * this.PX_SEG;
+            const x1 = W - (tAhora - p.t_inicio) * this.PX_SEG + this.scrollX;
+            const x2 = W - (tAhora - p.t_fin)    * this.PX_SEG + this.scrollX;
             const y  = this._midiToY(p.mediana_midi, pxS);
             if (x2 < labelW || x1 > W || y < 0 || y > H) continue;
 
