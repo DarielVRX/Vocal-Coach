@@ -382,6 +382,6 @@ if __name__ == "__main__":
     print("  VOCAL COACH SERVER v3")
     print(f"  Módulos: {[k for k,v in MODULES.items() if v]}")
     print("=" * 50)
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="warning",
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), log_level="warning",
                 ws_ping_interval=None, ws_ping_timeout=None,
                 h11_max_incomplete_event_size=200*1024*1024)
