@@ -162,13 +162,16 @@ class Sesion:
                 return
             self._idx_frase += 1
             frase = self.analizador.analizar(audio, self._idx_frase,
-                                             self._t_frase_ini, t_fin)
+                                            self._t_frase_ini, t_fin)
             if frase:
                 frase.plateaus = simplificar_plateaus(frase.plateaus)
                 self._frases.append(frase)
+                print(f"[SESSION] frase {self._idx_frase} OK — {len(frase.plateaus)} plateaus")  # ← TEMP
+            else:
+                print(f"[SESSION] frase {self._idx_frase} — analizador retornó None")  # ← TEMP
         except Exception as e:
             import traceback
-            print(f"[SESSION] _cerrar_frase: {e}\n{traceback.format_exc()}")
+            print(f"[SESSION] _cerrar_frase ERROR: {e}\n{traceback.format_exc()}")  # ya existe
         finally:
             self._resetear_frase()
 
