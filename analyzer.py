@@ -521,13 +521,11 @@ class AnalizadorFrase:
     def analizar(self, audio: np.ndarray, idx: int,
                 t_inicio: float, t_fin: float) -> Frase | None:
         if len(audio) < int(SAMPLE_RATE * 0.1):
-            print(f"[ANALYZER] frase {idx} — audio muy corto: {len(audio)}")
             return None
 
         f0, voiced = detectar_f0(audio)
         tiempos    = f0_a_tiempos(len(f0)) + t_inicio
         plateaus   = self.detector.detectar(f0, voiced, tiempos)
-        print(f"[ANALYZER] frase {idx} — f0 frames: {len(f0)}, voiced: {voiced.sum()}, plateaus: {len(plateaus)}")
 
         if not plateaus:
             return None

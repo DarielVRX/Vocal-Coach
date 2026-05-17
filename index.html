@@ -44,7 +44,7 @@ h1 { font-size: 1.1rem; color: #888; letter-spacing: 3px; margin-top: 6px; }
   cursor: pointer; transition: background 0.2s; color: #fff;
 }
 #btn-rec  { background: #7c83fd; }
-#btn-rec.grabando { background: #f44336; }
+#btn-rec:disabled { background: #444; cursor: not-allowed; opacity: 0.5; }
 #btn-stop { background: #333; }
 #btn-stop.activo  { background: #ff9800; }
 
@@ -182,7 +182,7 @@ h1 { font-size: 1.1rem; color: #888; letter-spacing: 3px; margin-top: 6px; }
 </div>
 
 <div id="btns">
-  <button class="btn" id="btn-rec"  onclick="toggleRec()">● REC</button>
+  <button class="btn" id="btn-rec"  onclick="toggleRec()" disabled>● REC</button>
   <button class="btn" id="btn-stop" onclick="detener()">■ STOP</button>
 </div>
 

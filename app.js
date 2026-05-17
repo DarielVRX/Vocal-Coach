@@ -20,7 +20,14 @@ function conectarWS(cb) {
   if (ws && ws.readyState !== WebSocket.CLOSED) { ws.onclose = null; ws.close(); }
   ws = new WebSocket(WS_URL);
   ws.onopen    = () => { setEstado('Conectado', '#4caf50'); if (cb) cb(); };
-  ws.onclose   = () => setEstado('Desconectado', '#f44336');
+  ws.onclose   = () => {
+    setEstado('Desconectado — reconectando...', '#f44336');
+    document.getElementById('btn-rec').disabled = true;
+    setTimeout(() => conectarWS(() => {
+      document.getElementById('btn-rec').disabled = false;
+      setEstado('Listo', '#555');
+    }), 2000);
+  };
   ws.onerror   = () => setEstado('Error WS', '#f44336');
   ws.onmessage = e  => _manejarMsg(JSON.parse(e.data));
 }
@@ -241,6 +248,17 @@ async function exportarSesion() {
     btn.innerHTML = '💾 EXPORTAR'; btn.disabled = false;
   }
 }
+
+// ── Precalentar WS al cargar ──────────────────────────────────────────────────
+
+window.addEventListener('load', () => {
+  setEstado('Conectando...', '#ffeb3b');
+  document.getElementById('btn-rec').disabled = true;
+  conectarWS(() => {
+    document.getElementById('btn-rec').disabled = false;
+    setEstado('Listo', '#555');
+  });
+});
 
 // ── Timer ─────────────────────────────────────────────────────────────────────
 
