@@ -18,10 +18,10 @@ from analyzer import AnalizadorFrase, Frase, simplificar_plateaus
 
 MAX_RECORD_S     = 300
 MAX_BUFFER       = SAMPLE_RATE * MAX_RECORD_S
-SILENCIO_FRAMES  = 6
+SILENCIO_FRAMES  = 12
 FRASE_MIN_S      = 0.3
 FRASE_MAX_S      = 10.0
-RMS_SILENCIO     = 0.015   # por debajo → skip YIN
+RMS_SILENCIO     = 0.008   # por debajo → skip YIN
 RMS_ZONA_GRIS    = 0.030   # zona gris: YIN corre pero filtramos spikes
 
 # Rango vocal humano razonable (MIDI)
