@@ -107,8 +107,11 @@ function _pausarRec() {
   clearInterval(timerID);
   if (processor) { processor.disconnect(); processor = null; }
   if (stream)    { stream.getTracks().forEach(t => t.stop()); stream = null; }
-  if (ws && ws.readyState === WebSocket.OPEN)
-    ws.send(JSON.stringify({ cmd: 'stop' }));
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      cmd: 'stop',
+      segmentos: window._timeline ? window._timeline._segmentos : [],
+    }));
   document.getElementById('btn-rec').textContent = '● REC';
   document.getElementById('btn-rec').classList.remove('grabando');
   setEstado('Pausado', '#ffeb3b');

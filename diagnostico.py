@@ -7,12 +7,25 @@ from analyzer import Frase, frase_a_dict, DIAG, calcular_score
 from pipeline import inferir_escala, calificar, INTERVALOS_ESCALA, nota_en_escala
 
 
-def generar_diagnostico(frases: list[Frase]) -> dict:
+def generar_diagnostico(frases: list[Frase], segmentos: list = None) -> dict:
     if not frases:
         return {"frases": [], "diagnostico": None}
 
-    todos_plateaus = [p for f in frases for p in f.plateaus
-                      if p.tipo in ("plateau", "vibrato")]
+    # Usar segmentos RT si están disponibles — más precisos que plateaus del detector
+    if segmentos:
+        todos_plateaus = [
+            type('P', (), {
+                'cents'      : s.get('cents', 0),
+                'varianza_f0': s.get('varianza', 0),
+                'tipo'       : s.get('tipo', 'plateau'),
+                'mediana_midi': s.get('midi', 0),
+            })()
+            for s in segmentos
+            if s.get('tipo') in ('plateau', 'vibrato')
+        ]
+    else:
+        todos_plateaus = [p for f in frases for p in f.plateaus
+                          if p.tipo in ("plateau", "vibrato")]
 
     if not todos_plateaus:
         return {"frases": _serializar_frases(frases), "diagnostico": None}

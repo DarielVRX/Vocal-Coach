@@ -359,8 +359,10 @@ async def ws_audio(ws: WebSocket):
                     sesion.iniciar()
                     await ws.send_text(json.dumps({"evento": "grabacion_iniciada"}))
                 elif cmd == "stop":
+                    data_cmd  = json.loads(msg["text"])
+                    segmentos = data_cmd.get("segmentos", [])
                     frases    = sesion.detener()
-                    resultado = generar_diagnostico(frases)
+                    resultado = generar_diagnostico(frases, segmentos=segmentos)
                     await ws.send_text(json.dumps(safe_json(
                         {"evento": "diagnostico", "data": resultado})))
             elif "bytes" in msg:

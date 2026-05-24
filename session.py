@@ -164,12 +164,7 @@ class Sesion:
             frase = self.analizador.analizar(audio, self._idx_frase,
                                              self._t_frase_ini, t_fin)
             if frase:
-                print(f"[FRASE {self._idx_frase}] plateaus raw:")
-                for i, p in enumerate(frase.plateaus):
-                    gap = f" gap={p.t_inicio - frase.plateaus[i-1].t_fin:.3f}s" if i > 0 else ""
-                    print(f"  {p.tipo:12} midi={p.mediana_midi:.1f} cents={p.cents:+.1f} dur={p.t_fin-p.t_inicio:.3f}s{gap}")
                 frase.plateaus = simplificar_plateaus(frase.plateaus)
-                print(f"[FRASE {self._idx_frase}] post-simplify: {len(frase.plateaus)}")
                 self._frases.append(frase)
         except Exception as e:
             import traceback
