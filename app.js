@@ -36,7 +36,7 @@ function _manejarMsg(d) {
   if (d.evento === 'grabacion_iniciada') {
     setEstado('Grabando...', '#f44336');
   } else if (d.evento === 'diagnostico') {
-    renderDiagnostico(d.data);
+    // Análisis RT ya renderizado en detener(); respuesta del servidor ignorada
   } else if (d.estado === 'grabando') {
     actualizarRMS(d.rms || 0);
     if (d.midi && window._timeline)
@@ -140,14 +140,12 @@ function detener() {
 
   if (window._modoKaraoke) detenerInstrumental();
 
+  if (window._timeline) window._timeline.detener();
+  renderDiagnosticoRT();
+  window._sesionGrabada = true;
+
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ cmd: 'stop' }));
-    if (window._timeline) window._timeline.detener();
-    window._sesionGrabada = true;
-    setEstado('Procesando...', '#7c83fd');
-  } else {
-    if (window._timeline) window._timeline.detener();
-    setEstado('Detenido', '#555');
   }
 }
 

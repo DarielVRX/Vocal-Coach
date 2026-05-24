@@ -243,6 +243,187 @@ function _comparacionRef(frase) {
   };
 }
 
+// ── Diagnóstico RT ────────────────────────────────────────────────────────────
+
+const _SCORE_TABLA = [
+  ['SS', 10, 0.05], ['S', 15, 0.08], ['A', 25, 0.15],
+  ['B',  35, 0.25], ['C', 45, 0.35], ['D', 999, 999],
+];
+
+const _ESCALAS_RT = {
+  'Mayor':        [0,2,4,5,7,9,11],
+  'Menor nat.':   [0,2,3,5,7,8,10],
+  'Menor arm.':   [0,2,3,5,7,8,11],
+  'Pentatónica':  [0,2,4,7,9],
+};
+const _NOTAS_RT = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+function _calcularScore(cents, estab) {
+  for (const [label, cMax, eMax] of _SCORE_TABLA)
+    if (cents <= cMax && estab <= eMax) return label;
+  return 'D';
+}
+
+function _calificar(val, ex, ok, mal) {
+  if (val <= ex) return 'Excelente';
+  if (val <= ok) return 'Ok';
+  if (val <= mal) return 'Malo';
+  return 'Pésimo';
+}
+
+function _generarFeedbackRT(segs) {
+  const msgs    = [];
+  const stables = segs.filter(s => s.tipo !== 'portamento');
+  if (stables.length) {
+    const media = stables.reduce((a, s) => a + s.cents, 0) / stables.length;
+    if (media < -15)      msgs.push('¡Sube!');
+    else if (media > 15)  msgs.push('¡Baja!');
+  }
+  const tipos = segs.map(s => s.tipo);
+  if (tipos.includes('vibrato'))                                       msgs.push('¡Vibrato!');
+  if (tipos.includes('portamento'))                                    msgs.push('¡Slide!');
+  if (tipos.filter(t => t === 'inestable').length > tipos.length * 0.4) msgs.push('¡Inestable!');
+  return msgs;
+}
+
+function _inferirEscalaRT(midis) {
+  if (!midis.length) return null;
+  const freq = new Array(12).fill(0);
+  for (const m of midis) freq[Math.round(m) % 12]++;
+  let mejor = null, mejorScore = -1;
+  for (let t = 0; t < 12; t++) {
+    for (const [nombre, ints] of Object.entries(_ESCALAS_RT)) {
+      const score = ints.reduce((s, i) => s + freq[(t + i) % 12], 0);
+      if (score > mejorScore) { mejorScore = score; mejor = `${_NOTAS_RT[t]} ${nombre}`; }
+    }
+  }
+  return mejor;
+}
+
+function _detectarFrasesRT(segs, gapMin = 0.5) {
+  if (!segs.length) return [];
+  const frases = [];
+  let actual = [segs[0]];
+  for (let i = 1; i < segs.length; i++) {
+    if (segs[i].t_ini - segs[i - 1].t_fin > gapMin) { frases.push(actual); actual = []; }
+    actual.push(segs[i]);
+  }
+  frases.push(actual);
+  return frases.filter(f => f.length > 0);
+}
+
+function _comparacionRefRT(frase) {
+  if (!window._plateausRef?.length) return null;
+  const refEnFrase = window._plateausRef.filter(
+    r => r.t_fin >= frase.t_inicio && r.t_inicio <= frase.t_fin
+  );
+  if (!refEnFrase.length) return null;
+  const midiRef  = refEnFrase.reduce((a, r) => a + r.mediana_midi, 0) / refEnFrase.length;
+  const grabSegs = (frase.segmentos || []).filter(s => s.tipo !== 'portamento');
+  if (!grabSegs.length) return null;
+  const midiGrab = grabSegs.reduce((a, s) => a + s.midi, 0) / grabSegs.length;
+  const diff     = Math.round(midiGrab - midiRef);
+  if (Math.abs(diff) < 2) return null;
+  const notaNombre = m => _NOTAS_RT[Math.round(m) % 12] + (Math.floor(Math.round(m) / 12) - 1);
+  const abs   = Math.abs(diff);
+  const color = abs <= 2 ? '#4caf50' : abs <= 5 ? '#ff9800' : '#f44336';
+  return { notaRef: notaNombre(midiRef), notaGrab: notaNombre(midiGrab),
+           flecha: diff > 0 ? '↑' : '↓', color };
+}
+
+function _renderFrasesScoreRT(frases, hasRef) {
+  let wrap = document.getElementById('diag-frases');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'diag-frases';
+    wrap.style.cssText = 'margin-top:10px;display:flex;flex-direction:column;gap:4px;';
+    document.getElementById('diag-wrap').appendChild(wrap);
+  }
+  wrap.innerHTML = frases.map(f => {
+    const col = SCORE_COLORS[f.score] || SCORE_COLORS.D;
+    const fb  = (f.feedback || []).join('  ');
+    const cmp = hasRef ? _comparacionRefRT(f) : null;
+    const cmpHtml = cmp ? `
+      <span style="display:inline-flex;align-items:center;gap:3px;flex-shrink:0;">
+        <span style="font-size:0.65rem;color:#555">${cmp.notaRef}</span>
+        <span style="font-size:0.8rem;color:${cmp.color}">${cmp.flecha}</span>
+        <span style="font-size:0.65rem;color:${cmp.color}">${cmp.notaGrab}</span>
+      </span>` : '';
+    return `
+      <div style="display:flex;align-items:center;gap:8px;
+                  padding:4px 0;border-bottom:1px solid #1a1a1a;">
+        <span style="font-size:0.7rem;color:#555;min-width:28px">${f.t_inicio.toFixed(1)}s</span>
+        <span style="padding:2px 10px;border-radius:6px;font-weight:700;font-size:0.85rem;
+                     background:${col.bg};color:${col.fg};flex-shrink:0;">${f.score}</span>
+        <span style="font-size:0.75rem;color:${FEEDBACK_COLOR};flex:1">${fb}</span>
+        ${cmpHtml}
+      </div>`;
+  }).join('');
+}
+
+function renderDiagnosticoRT() {
+  const segs = window._timeline?._segmentos || [];
+  if (!segs.length) { setEstado('Sin datos de grabación', '#555'); return; }
+
+  const stables       = segs.filter(s => s.tipo !== 'portamento');
+  const centsPromedio = stables.length
+    ? stables.reduce((a, s) => a + Math.abs(s.cents), 0) / stables.length : 0;
+  const estabPromedio = stables.length
+    ? stables.reduce((a, s) => a + (s.varianza || 0), 0) / stables.length : 0;
+
+  const scoreGlobal    = _calcularScore(centsPromedio, estabPromedio);
+  const escalaInferida = _inferirEscalaRT(stables.map(s => s.midi));
+  const calAfinacion   = _calificar(centsPromedio, 10, 25, 45);
+  const calEstabilidad = _calificar(estabPromedio, 0.05, 0.15, 0.30);
+  const calGeneral     = [calAfinacion, calEstabilidad].includes('Pésimo') ? 'Pésimo'
+    : [calAfinacion, calEstabilidad].includes('Malo') ? 'Malo'
+    : [calAfinacion, calEstabilidad].includes('Ok')   ? 'Ok' : 'Excelente';
+
+  const frases = _detectarFrasesRT(segs).map((segsF, idx) => {
+    const pl = segsF.filter(s => s.tipo !== 'portamento');
+    const cM = pl.length ? pl.reduce((a, s) => a + Math.abs(s.cents), 0) / pl.length : 0;
+    const eM = pl.length ? pl.reduce((a, s) => a + (s.varianza || 0), 0) / pl.length : 0;
+    return {
+      idx,
+      t_inicio : segsF[0].t_ini,
+      t_fin    : segsF[segsF.length - 1].t_fin,
+      score    : _calcularScore(cM, eM),
+      feedback : _generarFeedbackRT(segsF),
+      segmentos: segsF,
+    };
+  });
+
+  setEstado('Diagnóstico listo', '#4caf50');
+  document.getElementById('diag-wrap').style.display = 'block';
+
+  const colScore = SCORE_COLORS[scoreGlobal] || SCORE_COLORS.D;
+  document.getElementById('diag-general').innerHTML = `
+    <span style="display:inline-block;padding:4px 20px;border-radius:12px;
+                 background:${colScore.bg};color:${colScore.fg};
+                 box-shadow:0 0 16px ${colScore.glow}66;margin-right:10px;
+                 font-size:2rem;">${scoreGlobal}</span>
+    <span style="font-size:1.5rem;color:${colorCal(calGeneral)}">${calGeneral}</span>`;
+
+  const rows = [
+    ['Afinación',   calAfinacion,   `${Math.round(centsPromedio)}¢ prom.`],
+    ['Estabilidad', calEstabilidad, `σ=${estabPromedio.toFixed(4)}`],
+    ['Escala',      null,            escalaInferida || '—'],
+    ['Segmentos',   null,            segs.length],
+    ['Frases',      null,            frases.length],
+  ];
+  document.getElementById('diag-rows').innerHTML = rows.map(([k, cal, val]) => `
+    <div class="diag-row">
+      <span class="diag-key">${k}</span>
+      <span>
+        ${cal ? `<span class="diag-badge" style="background:${bgCal(cal)};color:${colorCal(cal)}">${cal}</span>` : ''}
+        <span style="color:#aaa;margin-left:6px;font-size:0.8rem">${val}</span>
+      </span>
+    </div>`).join('');
+
+  const hasRef = (window._plateausRef?.length > 0) || (window._refPuntos?.length > 0);
+  _renderFrasesScoreRT(frases, hasRef);
+}
+
 // ── Descarga ──────────────────────────────────────────────────────────────────
 
 async function descargarArchivo(ruta, nombre, prefijo = '/stems/') {
