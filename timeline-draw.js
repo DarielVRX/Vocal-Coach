@@ -202,42 +202,38 @@ const TimelineDraw = {
         if (!plateaus || plateaus.length === 0) return;
         const tAhora = this._tAhora();
         const pxS    = this._pxSemi();
-
         ctx.save();
-        for (let i = 0; i < plateaus.length; i++) {
-            const p  = plateaus[i];
-            // Normalizar nombres de campo: soporte tanto formato RT (t_ini/midi)
-            // como formato analizado por servidor (t_inicio/mediana_midi)
-            const tIni = p.t_ini  ?? p.t_inicio;
-            const midi = p.midi   ?? p.mediana_midi;
-            const x1 = W - (tAhora - tIni)   * this.PX_SEG + this.scrollX;
+
+        for (const p of plateaus) {
+            const t_ini = p.t_ini ?? p.t_inicio;
+            const midi  = p.midi  ?? p.mediana_midi;
+            const x1 = W - (tAhora - t_ini)   * this.PX_SEG + this.scrollX;
             const x2 = W - (tAhora - p.t_fin) * this.PX_SEG + this.scrollX;
             const y  = this._midiToY(midi, pxS);
             if (x2 < labelW && x1 < labelW) continue;
             if (x1 > W) continue;
             if (y < 0 || y > H) continue;
 
-            ctx.globalAlpha = isRef ? 0.45 : this._opacidadPlateau(p);
             const color = isRef ? '#4a7a9b' : this._colorCents(p.cents);
+            ctx.globalAlpha = isRef ? 0.35 : 1.0;
 
-            if (!isRef && p.fusionado && p.subtipo_arreglo) {
-                this._drawArreglo(x1, x2, y, p, pxS);
-            } else {
-                switch (p.tipo) {
-                    case 'vibrato':
-                        this._drawVibrato(x1, x2, y, color, isRef, pxS);
-                        break;
-                    case 'inestable':
-                        this._drawInestable(x1, x2, y, color, isRef, p.varianza_f0 ?? p.varianza, pxS);
-                        break;
-                    case 'portamento':
-                        this._drawPortamento(p, i, W, plateaus, isRef, pxS);
-                        break;
-                    default:
-                        this._drawPlateauEstable(x1, x2, y, color, isRef);
-                }
+            switch (p.tipo) {
+                case 'vibrato':
+                    this._drawVibrato(x1, x2, y, color, isRef, pxS);
+                    break;
+                case 'inestable':
+                    this._drawInestable(x1, x2, y, color, isRef, p.varianza ?? p.varianza_f0, pxS);
+                    break;
+                case 'portamento':
+                    ctx.strokeStyle = isRef ? '#3a5a7a' : '#6a7a8a';
+                    ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+                    ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke();
+                    break;
+                default:
+                    this._drawPlateauEstable(x1, x2, y, color, isRef);
             }
         }
+
         ctx.restore();
     },
 
