@@ -10,6 +10,8 @@ import os
 import traceback
 import uuid
 
+import matplotlib
+matplotlib.use('Agg')
 import librosa
 import numpy as np
 import soundfile as sf
