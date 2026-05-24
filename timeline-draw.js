@@ -117,18 +117,36 @@ const TimelineDraw = {
         const tAhora = this._tAhora();
         const pxS    = this._pxSemi();
         if (!this.puntosRef?.length) return;
+
+        const umbral = this._calcUmbralGap(this.puntosRef);
+
+        // Agrupar puntos crudos en segmentos por detección de gaps
+        const segs = [];
+        let seg = null;
+        for (let i = 0; i < this.puntosRef.length; i++) {
+            const p    = this.puntosRef[i];
+            const next = this.puntosRef[i + 1];
+            if (!seg) seg = { t_ini: p.t, midis: [p.midi], cents: [p.cents || 0] };
+            else { seg.midis.push(p.midi); seg.cents.push(p.cents || 0); }
+            if (!next || next.t - p.t >= umbral) {
+                seg.t_fin = p.t;
+                segs.push(seg);
+                seg = null;
+            }
+        }
+
         ctx.save();
         ctx.globalAlpha = 0.35;
-        const umbral = this._calcUmbralGap(this.puntosRef);
-        let prev = null;
-        for (const p of this.puntosRef) {
-            const x = W - (tAhora - p.t) * this.PX_SEG + this.scrollX;
-            const y = this._midiToY(p.midi, pxS);
-            if (prev && (p.t - prev.t < umbral)) {
-                ctx.strokeStyle = '#4a7a9b'; ctx.lineWidth = 2; ctx.lineCap = 'round';
-                ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(x, y); ctx.stroke();
-            }
-            prev = { x, y };
+        for (const s of segs) {
+            const x1 = W - (tAhora - s.t_ini) * this.PX_SEG + this.scrollX;
+            const x2 = W - (tAhora - s.t_fin) * this.PX_SEG + this.scrollX;
+            if (x2 < labelW && x1 < labelW) continue;
+            if (x1 > W) continue;
+            const sorted = [...s.midis].sort((a, b) => a - b);
+            const midi   = sorted[Math.floor(sorted.length / 2)];
+            const y = this._midiToY(midi, pxS);
+            if (y < 0 || y > H) continue;
+            this._drawPlateauEstable(x1, x2, y, '#4a7a9b', true);
         }
         ctx.restore();
     },
@@ -185,39 +203,42 @@ const TimelineDraw = {
         const tAhora = this._tAhora();
         const pxS    = this._pxSemi();
 
+        ctx.save();
         for (let i = 0; i < plateaus.length; i++) {
             const p  = plateaus[i];
-            const x1 = W - (tAhora - p.t_inicio) * this.PX_SEG + this.scrollX;
-            const x2 = W - (tAhora - p.t_fin)    * this.PX_SEG + this.scrollX;
-            const y  = this._midiToY(p.mediana_midi, pxS);
+            // Normalizar nombres de campo: soporte tanto formato RT (t_ini/midi)
+            // como formato analizado por servidor (t_inicio/mediana_midi)
+            const tIni = p.t_ini  ?? p.t_inicio;
+            const midi = p.midi   ?? p.mediana_midi;
+            const x1 = W - (tAhora - tIni)   * this.PX_SEG + this.scrollX;
+            const x2 = W - (tAhora - p.t_fin) * this.PX_SEG + this.scrollX;
+            const y  = this._midiToY(midi, pxS);
             if (x2 < labelW && x1 < labelW) continue;
             if (x1 > W) continue;
             if (y < 0 || y > H) continue;
 
-            ctx.save();
             ctx.globalAlpha = isRef ? 0.45 : this._opacidadPlateau(p);
-            const color = isRef ? null : this._colorCents(p.cents);
+            const color = isRef ? '#4a7a9b' : this._colorCents(p.cents);
 
             if (!isRef && p.fusionado && p.subtipo_arreglo) {
                 this._drawArreglo(x1, x2, y, p, pxS);
             } else {
                 switch (p.tipo) {
-                    case 'plateau':
-                        this._drawPlateauEstable(x1, x2, y, color, isRef);
-                        break;
-                    case 'inestable':
-                        this._drawInestable(x1, x2, y, color, isRef, p.varianza_f0, pxS);
-                        break;
                     case 'vibrato':
                         this._drawVibrato(x1, x2, y, color, isRef, pxS);
+                        break;
+                    case 'inestable':
+                        this._drawInestable(x1, x2, y, color, isRef, p.varianza_f0 ?? p.varianza, pxS);
                         break;
                     case 'portamento':
                         this._drawPortamento(p, i, W, plateaus, isRef, pxS);
                         break;
+                    default:
+                        this._drawPlateauEstable(x1, x2, y, color, isRef);
                 }
             }
-            ctx.restore();
         }
+        ctx.restore();
     },
 
     // ── Opacidad por tipo ─────────────────────────────────────────────────
