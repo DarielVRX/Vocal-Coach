@@ -86,7 +86,11 @@ async function _iniciarRec() {
       if (ws && ws.readyState === WebSocket.OPEN) ws.send(e.data.buffer);
     };
 
-      conectarWS(() => ws.send(JSON.stringify({ cmd: 'start' })));
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ cmd: 'start' }));
+      } else {
+        conectarWS(() => ws.send(JSON.stringify({ cmd: 'start' })));
+      }
 
       grabando = true;
       t0       = Date.now();
@@ -112,6 +116,7 @@ function _pausarRec() {
       cmd: 'stop',
       segmentos: window._timeline ? window._timeline._segmentos : [],
     }));
+  }
   document.getElementById('btn-rec').textContent = '● REC';
   document.getElementById('btn-rec').classList.remove('grabando');
   setEstado('Pausado', '#ffeb3b');
