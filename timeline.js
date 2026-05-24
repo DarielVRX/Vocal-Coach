@@ -121,9 +121,9 @@ class VocalTimeline {
         this.duracionRef = duracionTotal;
     }
     cargarPlateaus(plateaus) {
-        this.plateaus   = plateaus || [];
-        this.puntos     = [];
-        this._segmentos = [];
+        this.plateaus = plateaus || [];
+        this.puntos   = [];
+        // _segmentos se preserva: los segmentos RT tienen prioridad en _draw()
     }
 
     agregarPunto(midi, cents, tServidor) {
