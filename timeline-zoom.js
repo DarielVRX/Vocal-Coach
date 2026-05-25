@@ -65,9 +65,6 @@ const TimelineZoom = {
         }
 
         // ── Fase estable / zoomout ────────────────────────────────────────
-        const semiTarget = z.fase === 'zoomout' ? SEMI_OUT : SEMI_NORMAL;
-        z.visibleSemi += (semiTarget - z.visibleSemi) * ALPHA_ZOOM;
-
         const margenMidi = MARGEN_SEMI + (z.visibleSemi - SEMI_NORMAL) * 0.3;
         const fuera      = Math.abs(midi - z.centro) > (z.visibleSemi / 2 - margenMidi);
 
