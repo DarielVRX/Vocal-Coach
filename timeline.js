@@ -224,36 +224,89 @@ class VocalTimeline {
 
     _bindScroll() {
         const c = this.canvas;
+
+        // ── Touch: el contenido sigue al dedo 1:1 ────────────────────────
         c.addEventListener('touchstart', e => {
             if (this.grabando) return;
-            this.dragging   = true;
-            this.dragStartX = e.touches[0].clientX;
-            this.dragStartY = e.touches[0].clientY;
-        });
+            if (e.touches.length === 1) {
+                this.dragging   = true;
+                this.pinching   = false;
+                this.dragStartX = e.touches[0].clientX;
+                this.dragStartY = e.touches[0].clientY;
+            } else if (e.touches.length === 2) {
+                this.dragging    = false;
+                this.pinching    = true;
+                this._pinchDist0 = this._pinchDist(e.touches);
+                this._pinchSemi0 = this._zoom.visibleSemi;
+                const rect = c.getBoundingClientRect();
+                this._pinchMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+            }
+        }, { passive: true });
+
         c.addEventListener('touchmove', e => {
-            if (!this.dragging) return;
+            if (this.grabando) return;
             e.preventDefault();
-            const dx = e.touches[0].clientX - this.dragStartX;
-            const dy = e.touches[0].clientY - this.dragStartY;
-            this._aplicarScroll(dx, dy);
-            this.dragStartX = e.touches[0].clientX;
-            this.dragStartY = e.touches[0].clientY;
+            if (e.touches.length === 2 && this.pinching) {
+                const ratio      = this._pinchDist(e.touches) / this._pinchDist0;
+                const semi       = this._zoom.visibleSemi;
+                const pxS        = c.height / semi;
+                const midiCenter = this.topMidi - this._pinchMidY / pxS;
+                const newSemi    = Math.max(4, Math.min(this.TOTAL_SEMITONOS,
+                                                        Math.round(this._pinchSemi0 / ratio)));
+                const newPxS     = c.height / newSemi;
+                this._zoom.visibleSemi = newSemi;
+                this.topMidi = Math.max(this.MIDI_MIN + newSemi,
+                                        Math.min(this.MIDI_MAX,
+                                                 midiCenter + this._pinchMidY / newPxS));
+                this.scrollY = this.topMidi - (this.MIDI_MAX - newSemi / 2);
+            } else if (e.touches.length === 1 && this.dragging) {
+                const dx = e.touches[0].clientX - this.dragStartX;
+                const dy = e.touches[0].clientY - this.dragStartY;
+                this._aplicarScrollTouch(dx, dy);
+                this.dragStartX = e.touches[0].clientX;
+                this.dragStartY = e.touches[0].clientY;
+            }
         }, { passive: false });
-        c.addEventListener('touchend', () => { this.dragging = false; });
+
+        c.addEventListener('touchend', e => {
+            if (e.touches.length < 2) this.pinching = false;
+            if (e.touches.length === 0) {
+                this.dragging = false;
+            } else if (e.touches.length === 1) {
+                this.dragging   = true;
+                this.dragStartX = e.touches[0].clientX;
+                this.dragStartY = e.touches[0].clientY;
+            }
+        });
+
+        // ── Wheel: scroll estándar desktop + bloquear scroll de ventana ──
         c.addEventListener('wheel', e => {
             if (this.grabando) return;
-            this._aplicarScroll(-e.deltaX, e.deltaY);
-        });
+            e.preventDefault();
+            const semi = this._zoom.visibleSemi;
+            const pxS  = c.height / semi;
+            const maxX = Math.max(0, this._duracionTotal() * this.PX_SEG - (c.width - 36));
+            this.scrollX = Math.max(0, Math.min(maxX, this.scrollX - e.deltaX));
+            this.topMidi = Math.max(this.MIDI_MIN + semi,
+                                    Math.min(this.MIDI_MAX, this.topMidi - e.deltaY / pxS));
+            this.scrollY = this.topMidi - (this.MIDI_MAX - semi / 2);
+        }, { passive: false });
     }
 
-    _aplicarScroll(dx, dy) {
+    _pinchDist(touches) {
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    _aplicarScrollTouch(dx, dy) {
+        // Positivo dx = dedo va a la derecha = contenido va a la derecha
         const semi = this._zoom.visibleSemi;
+        const pxS  = this.canvas.height / semi;
         const maxX = Math.max(0, this._duracionTotal() * this.PX_SEG - (this.canvas.width - 36));
-        this.scrollX = Math.max(0, Math.min(maxX, this.scrollX - dx));
-        this.scrollY -= dy * 0.05;
+        this.scrollX = Math.max(0, Math.min(maxX, this.scrollX + dx));
         this.topMidi = Math.max(this.MIDI_MIN + semi,
-                                Math.min(this.MIDI_MAX,
-                                         this.MIDI_MAX - semi / 2 + this.scrollY));
+                                Math.min(this.MIDI_MAX, this.topMidi + dy / pxS));
         this.scrollY = this.topMidi - (this.MIDI_MAX - semi / 2);
     }
 
