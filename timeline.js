@@ -65,13 +65,18 @@ class VocalTimeline {
     }
 
     _resize() {
-        const w         = this.canvas.parentElement.clientWidth || 420;
-        const isDesktop = window.innerWidth >= 768;
-        this.canvas.width  = w;
-        this.canvas.height = isDesktop
-            ? Math.max(300, Math.min(700, window.innerHeight - 180))
-            : Math.min(260, window.innerHeight * 0.32);
-        if (this._vbar) this._vbar.style.height = this.canvas.height + 'px';
+        const r = this.canvas.getBoundingClientRect();
+        const w = Math.round(r.width);
+        const h = Math.round(r.height);
+        if (w > 0) this.canvas.width  = w;
+        if (h > 0) this.canvas.height = h;
+    }
+
+    _nowX() {
+        if (window._modoKaraoke && this.grabando) {
+            return Math.round(36 + (this.canvas.width - 36) * 0.30);
+        }
+        return this.canvas.width;
     }
 
     // ── API pública ───────────────────────────────────────────────────────
@@ -329,35 +334,13 @@ class VocalTimeline {
     // ── Scrollbars desktop ────────────────────────────────────────────
 
     _initScrollbars() {
-        const hbar = document.getElementById('tl-hbar');
-        const vbar = document.getElementById('tl-vbar');
-        this._hbar = hbar || null;
-        this._vbar = vbar || null;
+        this._hbar = null;
+        this._vbar = null;
         this._hDrag = false;
         this._vDrag = false;
-        if (hbar) {
-            hbar.addEventListener('pointerdown', () => { this._hDrag = true; });
-            window.addEventListener('pointerup',  () => { this._hDrag = false; });
-            hbar.addEventListener('input', () => { this.scrollX = +hbar.value; });
-        }
-        if (vbar) {
-            vbar.addEventListener('pointerdown', () => { this._vDrag = true; });
-            window.addEventListener('pointerup',  () => { this._vDrag = false; });
-            vbar.addEventListener('input', () => { this.topMidi = +vbar.value; });
-        }
     }
 
-    _syncScrollbars() {
-        if (!this._hbar) return;
-        const maxX = Math.max(1, this._duracionTotal() * this.PX_SEG - (this.canvas.width - 36));
-        this._hbar.max = maxX;
-        if (!this._hDrag) this._hbar.value = this.scrollX;
-        if (this._vbar) {
-            this._vbar.min = this.MIDI_MIN + this._zoom.visibleSemi;
-            this._vbar.max = this.MIDI_MAX;
-            if (!this._vDrag) this._vbar.value = this.topMidi;
-        }
-    }
+    _syncScrollbars() { }
 
     // ── Loop ──────────────────────────────────────────────────────────────
 

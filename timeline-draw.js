@@ -78,6 +78,7 @@ const TimelineDraw = {
         const dur    = this._duracionTotal();
         if (dur === 0) return;
 
+        const nowX        = this._nowX();
         const segsVisible = (W - 36) / this.PX_SEG;
         const interval    = segsVisible > 60 ? 10
         : segsVisible > 30 ? 5
@@ -91,7 +92,7 @@ const TimelineDraw = {
         ctx.lineWidth   = 0.8;
 
         for (let t = 0; t <= dur; t += interval) {
-            const x = W - (tAhora - t) * this.PX_SEG + this.scrollX;
+            const x = nowX - (tAhora - t) * this.PX_SEG + this.scrollX;
             if (x < 36 || x > W) continue;
             ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
             const label = t >= 60
@@ -115,12 +116,12 @@ const TimelineDraw = {
     _drawSegmentosRef(W, H) {
         const ctx    = this.ctx, labelW = 36;
         const tAhora = this._tAhora();
+        const nowX   = this._nowX();
         const pxS    = this._pxSemi();
         if (!this.puntosRef?.length) return;
 
         const umbral = this._calcUmbralGap(this.puntosRef);
 
-        // Agrupar puntos crudos en segmentos por detección de gaps
         const segs = [];
         let seg = null;
         for (let i = 0; i < this.puntosRef.length; i++) {
@@ -138,8 +139,8 @@ const TimelineDraw = {
         ctx.save();
         ctx.globalAlpha = 0.35;
         for (const s of segs) {
-            const x1 = W - (tAhora - s.t_ini) * this.PX_SEG + this.scrollX;
-            const x2 = W - (tAhora - s.t_fin) * this.PX_SEG + this.scrollX;
+            const x1 = nowX - (tAhora - s.t_ini) * this.PX_SEG + this.scrollX;
+            const x2 = nowX - (tAhora - s.t_fin) * this.PX_SEG + this.scrollX;
             if (x2 < labelW && x1 < labelW) continue;
             if (x1 > W) continue;
             const sorted = [...s.midis].sort((a, b) => a - b);
@@ -152,14 +153,15 @@ const TimelineDraw = {
     },
 
     _drawSegmentos(W, H) {
-        const ctx = this.ctx, labelW = 36;
+        const ctx    = this.ctx, labelW = 36;
         const tAhora = this._tAhora();
+        const nowX   = this._nowX();
         const pxS    = this._pxSemi();
         ctx.save();
 
         for (const s of this._segmentos) {
-            const x1 = W - (tAhora - s.t_ini) * this.PX_SEG + this.scrollX;
-            const x2 = W - (tAhora - s.t_fin) * this.PX_SEG + this.scrollX;
+            const x1 = nowX - (tAhora - s.t_ini) * this.PX_SEG + this.scrollX;
+            const x2 = nowX - (tAhora - s.t_fin) * this.PX_SEG + this.scrollX;
             const y  = this._midiToY(s.midi, pxS);
             if (x2 < labelW && x1 < labelW) continue;
             if (x1 > W) continue;
@@ -184,13 +186,13 @@ const TimelineDraw = {
 
         if (this._segActual) {
             const s  = this._segActual;
-            const x1 = W - (tAhora - s.t_ini) * this.PX_SEG + this.scrollX;
+            const x1 = nowX - (tAhora - s.t_ini) * this.PX_SEG + this.scrollX;
             const y  = this._midiToY(s.midi, pxS);
             if (x1 < W && y >= 0 && y <= H) {
                 ctx.globalAlpha = 0.45;
                 const color = this._colorCents(s.cents);
                 ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.lineCap = 'round';
-                ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(W, y); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(nowX, y); ctx.stroke();
             }
         }
 
@@ -198,17 +200,18 @@ const TimelineDraw = {
     },
 
     _drawPlateaus(W, H, plateaus, isRef) {
-        const ctx = this.ctx, labelW = 36;
+        const ctx    = this.ctx, labelW = 36;
         if (!plateaus || plateaus.length === 0) return;
         const tAhora = this._tAhora();
+        const nowX   = this._nowX();
         const pxS    = this._pxSemi();
         ctx.save();
 
         for (const p of plateaus) {
             const t_ini = p.t_ini ?? p.t_inicio;
             const midi  = p.midi  ?? p.mediana_midi;
-            const x1 = W - (tAhora - t_ini)   * this.PX_SEG + this.scrollX;
-            const x2 = W - (tAhora - p.t_fin) * this.PX_SEG + this.scrollX;
+            const x1 = nowX - (tAhora - t_ini)   * this.PX_SEG + this.scrollX;
+            const x2 = nowX - (tAhora - p.t_fin) * this.PX_SEG + this.scrollX;
             const y  = this._midiToY(midi, pxS);
             if (x2 < labelW && x1 < labelW) continue;
             if (x1 > W) continue;
@@ -299,8 +302,9 @@ const TimelineDraw = {
     _drawPortamento(p, idx, W, plateaus, isRef, pxS) {
         const ctx    = this.ctx;
         const tAhora = this._tAhora();
-        const x1     = W - (tAhora - p.t_inicio) * this.PX_SEG + this.scrollX;
-        const x2     = W - (tAhora - p.t_fin)    * this.PX_SEG + this.scrollX;
+        const nowX   = this._nowX();
+        const x1     = nowX - (tAhora - p.t_inicio) * this.PX_SEG + this.scrollX;
+        const x2     = nowX - (tAhora - p.t_fin)    * this.PX_SEG + this.scrollX;
         const prev   = plateaus[idx - 1];
         const next   = plateaus[idx + 1];
         if (!prev || !next) return;
@@ -374,13 +378,14 @@ const TimelineDraw = {
 
     _drawLetras(W, H) {
         if (!this.palabras || this.palabras.length === 0) return;
-        const ctx = this.ctx, labelW = 36;
+        const ctx    = this.ctx, labelW = 36;
         const tAhora = this._tAhora();
+        const nowX   = this._nowX();
         ctx.save();
         ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
         for (const w of this.palabras) {
             const tMid = (w.start + w.end) / 2;
-            const xMid = W - (tAhora - tMid) * this.PX_SEG;
+            const xMid = nowX - (tAhora - tMid) * this.PX_SEG;
             if (xMid < labelW || xMid > W) continue;
             const dt = Math.abs(tAhora - tMid);
             ctx.globalAlpha = Math.max(0.2, 1.0 - dt / 8);
@@ -392,11 +397,21 @@ const TimelineDraw = {
 
     _drawCursorLine(W, H) {
         if (!this.grabando) return;
-        const ctx = this.ctx;
-        ctx.strokeStyle = '#ffffff18'; ctx.lineWidth = 1;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath(); ctx.moveTo(W, 0); ctx.lineTo(W, H); ctx.stroke();
+        const ctx  = this.ctx;
+        const nowX = this._nowX();
+        const isKaraoke = !!(window._modoKaraoke);
+
+        ctx.strokeStyle = isKaraoke ? '#4caf5044' : '#ffffff18';
+        ctx.lineWidth   = isKaraoke ? 2 : 1;
+        ctx.setLineDash(isKaraoke ? [] : [4, 4]);
+        ctx.beginPath(); ctx.moveTo(nowX, 0); ctx.lineTo(nowX, H); ctx.stroke();
         ctx.setLineDash([]);
+
+        if (isKaraoke) {
+            ctx.fillStyle = '#4caf5077';
+            ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
+            ctx.fillText('NOW', nowX, 10);
+        }
     },
 
     _drawScrollIndicators(W, H) {

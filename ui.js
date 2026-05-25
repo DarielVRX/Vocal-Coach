@@ -22,13 +22,13 @@ function mostrarScoreFrase(score, feedback) {
     wrap = document.createElement('div');
     wrap.id = 'score-frase-wrap';
     wrap.style.cssText = `
-    width:100%; max-width:420px;
+    width:100%;
     background:#0d0d0d; border-top:1px solid #1a1a1a;
     padding:8px 14px; display:flex; align-items:center; gap:10px;
-    transition:opacity 0.4s; min-height:44px;
+    transition:opacity 0.4s; min-height:44px; flex-shrink:0;
     `;
-    const tl = document.getElementById('timeline-wrap');
-    tl.parentNode.insertBefore(wrap, tl.nextSibling);
+    const anchor = document.getElementById('main-row');
+    anchor.parentNode.insertBefore(wrap, anchor.nextSibling);
   }
 
   const col = SCORE_COLORS[score] || SCORE_COLORS.D;
@@ -51,14 +51,14 @@ function mostrarScoreFrase(score, feedback) {
   wrap._timer = setTimeout(() => { wrap.style.opacity = '0'; }, 2000);
 }
 
-// ── Afinador canvas ───────────────────────────────────────────────────────────
+// ── Afinador — strips verticales ─────────────────────────────────────────────
 
 const _TN = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const _tnNota = m => _TN[((Math.round(m) % 12) + 12) % 12] + (Math.floor(Math.round(m) / 12) - 1);
 
 let _tnCurMidi = 0, _tnCurCents = 0;
 let _tnTgtMidi = 0, _tnTgtCents = 0;
-let _tnRAF = null;
+let _tnRAF = null, _tnResizeTimer = null;
 
 function actualizarTuner(midi, cents) {
   _tnTgtMidi  = midi  || 0;
@@ -70,54 +70,140 @@ function _tnFrame() {
   _tnRAF = null;
   _tnCurMidi  += (_tnTgtMidi  - _tnCurMidi)  * 0.18;
   _tnCurCents += (_tnTgtCents - _tnCurCents) * 0.25;
-  _tnRender();
+  _tnRenderStrips();
   const moving = Math.abs(_tnCurMidi - _tnTgtMidi) > 0.01
                || Math.abs(_tnCurCents - _tnTgtCents) > 0.2;
   if (moving) _tnRAF = requestAnimationFrame(_tnFrame);
 }
 
-function _tnRender() {
-  const cv = document.getElementById('tuner-canvas');
-  if (!cv) return;
-  const W = cv.clientWidth, H = cv.clientHeight;
-  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+function _tnSyncCanvas(id) {
+  const cv = document.getElementById(id);
+  if (!cv) return null;
+  const r = cv.getBoundingClientRect();
+  const w = Math.round(r.width), h = Math.round(r.height);
+  if (w > 0 && h > 0) { cv.width = w; cv.height = h; }
+  return cv;
+}
+
+function _tnRenderStrips() {
+  const cvM = document.getElementById('strip-midi');
+  const cvC = document.getElementById('strip-cents');
+  if (cvM) {
+    const r = cvM.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) {
+      if (cvM.width !== Math.round(r.width))  cvM.width  = Math.round(r.width);
+      if (cvM.height !== Math.round(r.height)) cvM.height = Math.round(r.height);
+      _tnDrawMidi(cvM);
+    }
+  }
+  if (cvC) {
+    const r = cvC.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) {
+      if (cvC.width !== Math.round(r.width))  cvC.width  = Math.round(r.width);
+      if (cvC.height !== Math.round(r.height)) cvC.height = Math.round(r.height);
+      _tnDrawCents(cvC);
+    }
+  }
+}
+
+// ─── Strip Midi ───────────────────────────────────────────────────────────────
+
+function _tnDrawMidi(cv) {
+  const W = cv.width, H = cv.height;
   const ctx = cv.getContext('2d');
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#0d0d0d';
   ctx.fillRect(0, 0, W, H);
-
-  const WA = Math.round(W * 0.58), WB = W - WA - 1;
-  _tnRange(ctx, 0, WA, H);
-  ctx.fillStyle = '#1a1a1a';
-  ctx.fillRect(WA, 4, 1, H - 8);
-  _tnFine(ctx, WA + 1, WB, H);
+  if (H >= W) _tnMidiVert(ctx, W, H);
+  else        _tnMidiHoriz(ctx, W, H);
 }
 
-function _tnRange(ctx, x0, W, H) {
+function _tnMidiVert(ctx, W, H) {
+  const SEMI_VIS  = 12;
+  const pxS       = H / SEMI_VIS;
+  const centerMidi = _tnCurMidi > 0 ? _tnCurMidi : 60;
+  const topMidi    = centerMidi + SEMI_VIS / 2;
+
+  const absCents = Math.abs(_tnTgtCents);
+  const color = _tnTgtMidi > 0
+    ? (absCents < 10 ? '#4caf50' : absCents < 25 ? '#cddc39' : absCents < 45 ? '#ff9800' : '#f44336')
+    : '#444';
+
+  // Backgrounds + labels
+  for (let i = -1; i <= SEMI_VIS + 1; i++) {
+    const midi = Math.round(topMidi - i);
+    if (midi < 24 || midi > 108) continue;
+    const nota = _TN[((midi % 12) + 12) % 12];
+    const isSos = nota.includes('#');
+    const isC   = nota === 'C';
+    const y     = (topMidi - midi) * pxS;
+    if (y + pxS < 0 || y > H) continue;
+
+    ctx.fillStyle = isSos ? '#111' : (isC ? '#0f0f18' : '#141414');
+    ctx.fillRect(0, y, W, pxS + 0.5);
+
+    if (!isSos) {
+      const oct = Math.floor(midi / 12) - 1;
+      ctx.fillStyle   = isC ? '#5a6aff' : '#2a2a2a';
+      ctx.font        = `${isC ? 'bold ' : ''}${Math.max(8, Math.min(11, pxS * 0.58))}px monospace`;
+      ctx.textAlign   = 'center';
+      ctx.fillText(`${nota}${oct}`, W / 2, y + pxS * 0.72);
+    }
+  }
+
+  // Grid lines
+  for (let i = -1; i <= SEMI_VIS + 1; i++) {
+    const midi = Math.round(topMidi - i);
+    const nota = _TN[((midi % 12) + 12) % 12];
+    const y    = (topMidi - midi) * pxS;
+    ctx.strokeStyle = nota === 'C' ? '#333' : '#1a1a1a';
+    ctx.lineWidth   = nota === 'C' ? 1 : 0.5;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  if (_tnTgtMidi > 0) {
+    // Band highlight for current note
+    const noteY = (topMidi - Math.round(_tnCurMidi)) * pxS;
+    ctx.fillStyle = color + '22';
+    ctx.fillRect(0, noteY, W, pxS);
+
+    // Glow
+    const needleY = (topMidi - _tnCurMidi) * pxS;
+    ctx.strokeStyle = color + '55';
+    ctx.lineWidth = 7; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0, needleY); ctx.lineTo(W, needleY); ctx.stroke();
+
+    // Needle
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(2, needleY); ctx.lineTo(W - 2, needleY); ctx.stroke();
+  }
+
+  // Right border
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(W - 0.5, 0); ctx.lineTo(W - 0.5, H); ctx.stroke();
+}
+
+function _tnMidiHoriz(ctx, W, H) {
+  // Horizontal version (mobile) — scrolling note range
   const SEMIS = 13;
   const pxS   = W / SEMIS;
   const fMidi = _tnCurMidi + _tnCurCents / 100;
   const absCents = Math.abs(_tnTgtCents);
   const color = _tnTgtMidi > 0
     ? (absCents < 10 ? '#4caf50' : absCents < 25 ? '#cddc39' : absCents < 45 ? '#ff9800' : '#f44336')
-    : '#333';
+    : '#444';
 
-  ctx.save();
-  ctx.translate(x0, 0);
-
-  // Fondo degradado de notas sostenidas/naturales
   for (let dm = -7; dm <= 7; dm++) {
     const semi = Math.round(fMidi) + dm;
     const xc   = W / 2 + (semi - fMidi) * pxS;
     const nota  = _TN[((semi % 12) + 12) % 12];
-    const isSos = nota.includes('#');
-    const x1 = xc - pxS / 2, bw = pxS;
-    if (x1 + bw < 0 || x1 > W) continue;
-    ctx.fillStyle = isSos ? '#111' : '#141414';
-    ctx.fillRect(Math.max(0, x1), 0, Math.min(bw, W - Math.max(0, x1)), H);
+    const x1 = xc - pxS / 2;
+    if (x1 + pxS < 0 || x1 > W) continue;
+    ctx.fillStyle = nota.includes('#') ? '#111' : '#141414';
+    ctx.fillRect(Math.max(0, x1), 0, Math.min(pxS, W - Math.max(0, x1)), H);
   }
 
-  // Tick marks y nombres de nota
   for (let dm = -7; dm <= 7; dm++) {
     const semi = Math.round(fMidi) + dm;
     const xc   = W / 2 + (semi - fMidi) * pxS;
@@ -125,98 +211,146 @@ function _tnRange(ctx, x0, W, H) {
     const nota  = _TN[((semi % 12) + 12) % 12];
     const isNat = !nota.includes('#');
     const isC   = nota === 'C';
-
     ctx.strokeStyle = isC ? '#333' : (isNat ? '#222' : '#1a1a1a');
     ctx.lineWidth   = isC ? 1.5 : 0.8;
-    ctx.beginPath(); ctx.moveTo(xc, H * 0.55); ctx.lineTo(xc, H); ctx.stroke();
-
+    ctx.beginPath(); ctx.moveTo(xc, H * 0.5); ctx.lineTo(xc, H); ctx.stroke();
     if (isNat) {
-      ctx.fillStyle  = isC ? '#5a6aff' : '#3a3a3a';
-      ctx.font       = `${isC ? 'bold ' : ''}${Math.max(9, H * 0.2)}px monospace`;
-      ctx.textAlign  = 'center';
-      ctx.fillText(nota + (Math.floor(semi / 12) - 1), xc, H * 0.45);
+      ctx.fillStyle = isC ? '#5a6aff' : '#3a3a3a';
+      ctx.font      = `${isC ? 'bold ' : ''}${Math.max(9, H * 0.32)}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(nota + (Math.floor(semi / 12) - 1), xc, H * 0.38);
     }
   }
 
-  // Nota actual en el centro (grande)
   if (_tnTgtMidi > 0) {
     ctx.fillStyle = color;
-    ctx.font      = `bold ${H * 0.38}px monospace`;
+    ctx.font      = `bold ${H * 0.44}px monospace`;
     ctx.textAlign = 'center';
-    ctx.fillText(_tnNota(Math.round(_tnTgtMidi)), W / 2, H * 0.3);
+    ctx.fillText(_tnNota(Math.round(_tnTgtMidi)), W / 2, H * 0.44);
+    ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(W / 2, H * 0.5); ctx.lineTo(W / 2, H); ctx.stroke();
   }
-
-  // Aguja central fija
-  ctx.strokeStyle = color;
-  ctx.lineWidth   = 3; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke();
-
-  ctx.restore();
 }
 
-function _tnFine(ctx, x0, W, H) {
-  const pxPC = W / 200; // ±100 cents
-  const near = Math.round(_tnTgtMidi);
+// ─── Strip Cents ─────────────────────────────────────────────────────────────
+
+function _tnDrawCents(cv) {
+  const W = cv.width, H = cv.height;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#0d0d0d';
+  ctx.fillRect(0, 0, W, H);
+  if (H >= W) _tnCentsVert(ctx, W, H);
+  else        _tnCentsHoriz(ctx, W, H);
+}
+
+function _tnCentsVert(ctx, W, H) {
+  const cY   = H / 2;
+  const pxPC = H / 200; // ±100 cents → full height
   const absCents = Math.abs(_tnTgtCents);
   const color = _tnTgtMidi > 0
     ? (absCents < 10 ? '#4caf50' : absCents < 25 ? '#cddc39' : absCents < 45 ? '#ff9800' : '#f44336')
-    : '#333';
+    : '#444';
 
-  ctx.save();
-  ctx.translate(x0, 0);
-
-  // Zona verde central
+  // Green zone ±10 cents
   ctx.fillStyle = '#1b3a1b';
-  ctx.fillRect(W / 2 - 15 * pxPC, 0, 30 * pxPC, H);
+  ctx.fillRect(0, cY - 10 * pxPC, W, 20 * pxPC);
 
-  // Línea central
+  // Center line
+  ctx.strokeStyle = '#2a4a2a'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, cY); ctx.lineTo(W, cY); ctx.stroke();
+
+  // Tick marks ±25, ±50, ±75
+  for (const dc of [-75, -50, -25, 25, 50, 75]) {
+    const y = cY - dc * pxPC;
+    ctx.strokeStyle = '#222'; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(W * 0.4, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Labels ±50
+  ctx.fillStyle = '#2a2a2a'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('+50', W / 2, cY - 50 * pxPC - 2);
+  ctx.fillText('-50', W / 2, cY + 50 * pxPC + 9);
+
+  if (_tnTgtMidi > 0) {
+    const needleY = Math.max(2, Math.min(H - 2, cY - _tnCurCents * pxPC));
+
+    // Bar from center to needle
+    ctx.fillStyle = color + '40';
+    ctx.fillRect(W * 0.3, Math.min(cY, needleY), W * 0.7, Math.abs(cY - needleY) || 1);
+
+    // Glow
+    ctx.strokeStyle = color + '55';
+    ctx.lineWidth = 6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(W * 0.3, needleY); ctx.lineTo(W, needleY); ctx.stroke();
+
+    // Needle
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(W * 0.1, needleY); ctx.lineTo(W - 1, needleY); ctx.stroke();
+
+    // Cents label
+    const label = `${_tnTgtCents > 0 ? '+' : ''}${Math.round(_tnTgtCents)}¢`;
+    ctx.fillStyle = color;
+    ctx.font = `bold ${Math.max(8, Math.min(11, W * 0.3))}px monospace`;
+    ctx.textAlign = 'center';
+    const lY = needleY < H * 0.2 ? needleY + 13
+             : needleY > H * 0.8 ? needleY - 3
+             : needleY > cY      ? needleY - 3 : needleY + 13;
+    ctx.fillText(label, W / 2, lY);
+  }
+
+  // Right border
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(W - 0.5, 0); ctx.lineTo(W - 0.5, H); ctx.stroke();
+}
+
+function _tnCentsHoriz(ctx, W, H) {
+  // Horizontal fine-tuning strip (mobile)
+  const pxPC = W / 200;
+  const absCents = Math.abs(_tnTgtCents);
+  const color = _tnTgtMidi > 0
+    ? (absCents < 10 ? '#4caf50' : absCents < 25 ? '#cddc39' : absCents < 45 ? '#ff9800' : '#f44336')
+    : '#444';
+
+  ctx.fillStyle = '#1b3a1b';
+  ctx.fillRect(W / 2 - 10 * pxPC, 0, 20 * pxPC, H);
+
   ctx.strokeStyle = '#2a4a2a'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke();
 
-  // Ticks en ±25, ±50, ±75
   for (const dc of [-75, -50, -25, 25, 50, 75]) {
     const x = W / 2 + dc * pxPC;
     ctx.strokeStyle = '#222'; ctx.lineWidth = 0.8;
-    ctx.beginPath(); ctx.moveTo(x, H * 0.6); ctx.lineTo(x, H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, H * 0.5); ctx.lineTo(x, H); ctx.stroke();
   }
 
   if (_tnTgtMidi > 0) {
-    // Nota vecinas (arriba y abajo)
-    ctx.fillStyle = '#2a2a2a';
-    ctx.font = `${H * 0.18}px monospace`;
-    ctx.textAlign = 'left';
-    ctx.fillText(_tnNota(near + 1), 4, H * 0.2);
-    ctx.fillText(_tnNota(near - 1), 4, H * 0.92);
+    const nx = Math.max(2, Math.min(W - 2, W / 2 + _tnCurCents * pxPC));
+    ctx.strokeStyle = color + '55'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(nx, 0); ctx.lineTo(nx, H); ctx.stroke();
+    ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(nx, 0); ctx.lineTo(nx, H); ctx.stroke();
 
-    // Nota actual (centro, grande)
+    const near = Math.round(_tnTgtMidi);
     ctx.fillStyle = color;
-    ctx.font = `bold ${H * 0.35}px monospace`;
+    ctx.font = `bold ${H * 0.4}px monospace`;
     ctx.textAlign = 'center';
-    ctx.fillText(_tnNota(near), W / 2, H * 0.32);
-
-    // Aguja móvil (cents)
-    const nx = Math.max(2, Math.min(W - 2, W / 2 + _tnTgtCents * pxPC));
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 3; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(nx, H * 0.45); ctx.lineTo(nx, H); ctx.stroke();
-
-    // Label cents
-    ctx.fillStyle = color;
-    ctx.font = `${H * 0.2}px monospace`;
-    ctx.textAlign = 'right';
-    ctx.fillText(`${_tnTgtCents > 0 ? '+' : ''}${Math.round(_tnTgtCents)}¢`, W - 4, H * 0.92);
+    ctx.fillText(_tnNota(near), W / 2, H * 0.42);
+    ctx.font = `${H * 0.28}px monospace`;
+    ctx.fillText(`${_tnTgtCents > 0 ? '+' : ''}${Math.round(_tnTgtCents)}¢`, nx < W * 0.7 ? W * 0.85 : W * 0.15, H * 0.88);
   }
-
-  ctx.restore();
 }
 
-// Iniciar loop del afinador
+// ─── Init ─────────────────────────────────────────────────────────────────────
+
 (function _tnInit() {
-  const cv = document.getElementById('tuner-canvas');
-  if (!cv) return;
-  function resize() { cv.width = cv.clientWidth || 300; cv.height = cv.clientHeight || 80; _tnRender(); }
-  window.addEventListener('resize', resize);
-  window.addEventListener('load', () => { resize(); requestAnimationFrame(() => { _tnRender(); }); });
+  function refresh() { _tnRenderStrips(); }
+  window.addEventListener('resize', () => {
+    clearTimeout(_tnResizeTimer);
+    _tnResizeTimer = setTimeout(refresh, 80);
+  });
+  window.addEventListener('load', () => setTimeout(refresh, 60));
 })();
 
 // ── Estado y barras ───────────────────────────────────────────────────────────
