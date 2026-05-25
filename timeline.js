@@ -61,7 +61,6 @@ class VocalTimeline {
         window.addEventListener('resize', () => this._resize());
         this._bindScroll();
         this._loop();
-        this._initScrollbars();
     }
 
     _resize() {
@@ -346,7 +345,6 @@ class VocalTimeline {
 
     _loop() {
         this._draw();
-        this._syncScrollbars();
         requestAnimationFrame(() => this._loop());
     }
 

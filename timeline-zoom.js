@@ -65,40 +65,34 @@ const TimelineZoom = {
         }
 
         // ── Fase estable / zoomout ────────────────────────────────────────
+        const semiTarget = z.fase === 'zoomout' ? SEMI_OUT : SEMI_NORMAL;
+        z.visibleSemi += (semiTarget - z.visibleSemi) * ALPHA_ZOOM;
+
         const margenMidi = MARGEN_SEMI + (z.visibleSemi - SEMI_NORMAL) * 0.3;
         const fuera      = Math.abs(midi - z.centro) > (z.visibleSemi / 2 - margenMidi);
 
         if (fuera && z.fase === 'estable') {
-            z.fase       = 'zoomout';
-            z.tZoomOut   = t;
-            z._bgSamples = [];
+            z.fase     = 'zoomout';
+            z.tZoomOut = t;
         } else if (!fuera && z.fase === 'zoomout') {
-            z.fase       = 'estable';
-            z.tZoomOut   = null;
-            z._bgSamples = null;
-        } else if (z.fase === 'zoomout') {
-            // Acumulación en background — sin cambiar el centro hasta tener confianza
-            z._bgSamples.push(midi);
-            if (z._bgSamples.length > 40) z._bgSamples.shift();
-
-            if (t - z.tZoomOut >= RECALIB_S) {
-                const centroRef = this._centroRef();
-                if (centroRef !== null) {
-                    z.centro     = centroRef;
-                    z.fase       = 'estable';
-                    z._bgSamples = null;
-                    z.tZoomOut   = null;
-                    console.log(`[Zoom] Recalibrado → ref: centro=${z.centro.toFixed(1)}`);
-                } else if (z._bgSamples.length >= CONFIANZA_MIN) {
-                    const recientes = z._bgSamples.slice(-CONFIANZA_MIN);
-                    const cv        = this._cv(recientes);
-                    if (cv < CONFIANZA_CV) {
-                        z.centro     = this._mediana(recientes);
-                        z.fase       = 'estable';
-                        z._bgSamples = null;
-                        z.tZoomOut   = null;
-                        console.log(`[Zoom] Recalibrado (bg): centro=${z.centro.toFixed(1)} CV=${cv.toFixed(3)}`);
-                    }
+            z.fase     = 'estable';
+            z.tZoomOut = null;
+        } else if (z.fase === 'zoomout' && (t - z.tZoomOut) >= RECALIB_S) {
+            const centroRef = this._centroRef();
+            if (centroRef !== null) {
+                z.centro   = centroRef;
+                z.fase     = 'estable';
+                z.tZoomOut = null;
+                console.log(`[Zoom] Recalibrado → ref: centro=${z.centro.toFixed(1)}`);
+            } else {
+                const recientes = this.puntos
+                .filter(p => p.midi > 0 && p.t >= t - 10)
+                .map(p => p.midi);
+                if (recientes.length >= CONFIANZA_MIN) {
+                    z.centro   = this._mediana(recientes);
+                    z.fase     = 'estable';
+                    z.tZoomOut = null;
+                    console.log(`[Zoom] Recalibrado: centro=${z.centro.toFixed(1)}`);
                 }
             }
         }
