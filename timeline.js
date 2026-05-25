@@ -225,7 +225,7 @@ class VocalTimeline {
     _bindScroll() {
         const c = this.canvas;
 
-        // ── Touch: el contenido sigue al dedo 1:1 ────────────────────────
+        // ── Touch (móvil) ─────────────────────────────────────────────────
         c.addEventListener('touchstart', e => {
             if (this.grabando) return;
             if (e.touches.length === 1) {
@@ -247,18 +247,7 @@ class VocalTimeline {
             if (this.grabando) return;
             e.preventDefault();
             if (e.touches.length === 2 && this.pinching) {
-                const ratio      = this._pinchDist(e.touches) / this._pinchDist0;
-                const semi       = this._zoom.visibleSemi;
-                const pxS        = c.height / semi;
-                const midiCenter = this.topMidi - this._pinchMidY / pxS;
-                const newSemi    = Math.max(4, Math.min(this.TOTAL_SEMITONOS,
-                                                        Math.round(this._pinchSemi0 / ratio)));
-                const newPxS     = c.height / newSemi;
-                this._zoom.visibleSemi = newSemi;
-                this.topMidi = Math.max(this.MIDI_MIN + newSemi,
-                                        Math.min(this.MIDI_MAX,
-                                                 midiCenter + this._pinchMidY / newPxS));
-                this.scrollY = this.topMidi - (this.MIDI_MAX - newSemi / 2);
+                this._aplicarPinch(e.touches, c.height);
             } else if (e.touches.length === 1 && this.dragging) {
                 const dx = e.touches[0].clientX - this.dragStartX;
                 const dy = e.touches[0].clientY - this.dragStartY;
@@ -279,17 +268,11 @@ class VocalTimeline {
             }
         });
 
-        // ── Wheel: scroll estándar desktop + bloquear scroll de ventana ──
+        // ── Wheel (desktop) ───────────────────────────────────────────────
         c.addEventListener('wheel', e => {
             if (this.grabando) return;
             e.preventDefault();
-            const semi = this._zoom.visibleSemi;
-            const pxS  = c.height / semi;
-            const maxX = Math.max(0, this._duracionTotal() * this.PX_SEG - (c.width - 36));
-            this.scrollX = Math.max(0, Math.min(maxX, this.scrollX - e.deltaX));
-            this.topMidi = Math.max(this.MIDI_MIN + semi,
-                                    Math.min(this.MIDI_MAX, this.topMidi - e.deltaY / pxS));
-            this.scrollY = this.topMidi - (this.MIDI_MAX - semi / 2);
+            this._aplicarScrollWheel(e.deltaX, e.deltaY);
         }, { passive: false });
     }
 
@@ -299,14 +282,42 @@ class VocalTimeline {
         return Math.sqrt(dx * dx + dy * dy);
     }
 
+    _aplicarPinch(touches, canvasH) {
+        const ratio      = this._pinchDist(touches) / this._pinchDist0;
+        const semi       = this._zoom.visibleSemi;
+        const pxS        = canvasH / semi;
+        const midiCenter = this.topMidi - this._pinchMidY / pxS;
+        const newSemi    = Math.max(4, Math.min(this.TOTAL_SEMITONOS,
+                                                Math.round(this._pinchSemi0 / ratio)));
+        const newPxS     = canvasH / newSemi;
+        this._zoom.visibleSemi = newSemi;
+        this.topMidi = Math.max(this.MIDI_MIN + newSemi,
+                                Math.min(this.MIDI_MAX,
+                                         midiCenter + this._pinchMidY / newPxS));
+        this.scrollY = this.topMidi - (this.MIDI_MAX - newSemi / 2);
+    }
+
+    // dedo derecha → avanzar en tiempo (dx > 0 → scrollX disminuye → ver más tarde)
+    // dedo arriba  → ver notas más agudas (dy < 0 → topMidi disminuye → notas suben)
     _aplicarScrollTouch(dx, dy) {
-        // Positivo dx = dedo va a la derecha = contenido va a la derecha
         const semi = this._zoom.visibleSemi;
         const pxS  = this.canvas.height / semi;
         const maxX = Math.max(0, this._duracionTotal() * this.PX_SEG - (this.canvas.width - 36));
-        this.scrollX = Math.max(0, Math.min(maxX, this.scrollX + dx));
+        this.scrollX = Math.max(0, Math.min(maxX, this.scrollX - dx));
         this.topMidi = Math.max(this.MIDI_MIN + semi,
-                                Math.min(this.MIDI_MAX, this.topMidi + dy / pxS));
+                                Math.min(this.MIDI_MAX, this.topMidi - dy / pxS));
+        this.scrollY = this.topMidi - (this.MIDI_MAX - semi / 2);
+    }
+
+    // scroll derecha → avanzar en tiempo (deltaX > 0 → scrollX aumenta → ver más tarde)
+    // scroll abajo  → ver notas más graves (deltaY > 0 → topMidi disminuye → notas bajan)
+    _aplicarScrollWheel(deltaX, deltaY) {
+        const semi = this._zoom.visibleSemi;
+        const pxS  = this.canvas.height / semi;
+        const maxX = Math.max(0, this._duracionTotal() * this.PX_SEG - (this.canvas.width - 36));
+        this.scrollX = Math.max(0, Math.min(maxX, this.scrollX + deltaX));
+        this.topMidi = Math.max(this.MIDI_MIN + semi,
+                                Math.min(this.MIDI_MAX, this.topMidi - deltaY / pxS));
         this.scrollY = this.topMidi - (this.MIDI_MAX - semi / 2);
     }
 
