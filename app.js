@@ -178,7 +178,7 @@ async function subirPista() {
   const btn = document.getElementById('btn-upload');
   btn.disabled = true;
   btn.innerHTML = '⏳ SUBIENDO<span class="spinner"></span>';
-  setEstado('Subiendo pista...', '#ffeb3b');
+  setEstado('Subiendo tu canción... un momento', '#ffeb3b');
   try {
     const fd  = new FormData(); fd.append('file', file);
     const upd = await (await fetch('/upload/karaoke', { method:'POST', body:fd })).json();
@@ -186,6 +186,7 @@ async function subirPista() {
     pistaPath = upd.path;
 
     btn.innerHTML = '🔧 SEPARANDO<span class="spinner"></span>';
+    setEstado('Iniciando la separación de pistas...', '#7c83fd');
     const isod = await (await fetch('/isolate', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ file_path: pistaPath })
@@ -198,23 +199,35 @@ async function subirPista() {
   }
 }
 
+function _mensajeSeparacion(pct) {
+  if (pct <=  5) return 'Cargando la canción en el servidor...';
+  if (pct <= 25) return `Separando voces de la música... ${pct}%`;
+  if (pct <= 65) return `Procesando audio... ${pct}% — esto puede tardar unos minutos`;
+  if (pct <= 90) return `Ya casi... ${pct}%`;
+  return `Terminando... ${pct}%`;
+}
+
 async function _monitorearProgreso(taskId, btn, fileName) {
   while (true) {
     const data = await (await fetch(`/isolate/progress/${taskId}`)).json();
     if (data.error) throw new Error(data.error);
-    actualizarBarraProgreso(data.progress || 0);
-    btn.innerHTML = `🔧 ${data.progress || 0}%<span class="spinner"></span>`;
+    const pct = data.progress || 0;
+    actualizarBarraProgreso(pct);
+    btn.innerHTML = `🔧 ${pct}%<span class="spinner"></span>`;
+    setEstado(_mensajeSeparacion(pct), '#7c83fd');
 
     if (data.status === 'completed') {
       pistaStems = data.result;
       mostrarPistaInfo(fileName, ['vocals','accompaniment']);
       btn.innerHTML = '📁 CAMBIAR PISTA'; btn.disabled = false;
-      setEstado('Analizando referencia vocal...', '#7c83fd');
+      setEstado('Separación lista — analizando la voz de referencia...', '#7c83fd');
       await cargarReferenciaVocal(pistaStems.vocals);
+      setEstado('Cargando el fondo musical...', '#7c83fd');
       await cargarInstrumentalServidor(pistaStems.accompaniment);
+      setEstado('Transcribiendo la letra... puede demorar un poco ☕', '#7c83fd');
       await cargarTranscripcionServidor(pistaStems.vocals);
       mostrarBotonKaraoke();
-      setEstado('Listo ✓', '#4caf50');
+      setEstado('¡Todo listo! Ya puedes grabar 🎤', '#4caf50');
       break;
     } else if (data.status === 'failed') {
       throw new Error(data.message || 'Separación falló');
@@ -231,6 +244,7 @@ async function exportarSesion() {
   btn.disabled = true; btn.innerHTML = '⏳ EXPORTANDO<span class="spinner"></span>';
   try {
     if (window._sesionGrabada) {
+      setEstado('Generando tu reporte... un momento', '#7c83fd');
       const data = await (await fetch('/export/session', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
@@ -241,13 +255,14 @@ async function exportarSesion() {
         })
       })).json();
       if (!data.success) throw new Error(data.error);
+      setEstado('Descargando archivos...', '#7c83fd');
       for (const [nombre, ruta] of Object.entries(data.files)) {
         const ext    = ruta.endsWith('.pdf') ? '.pdf' : '.wav';
         const prefijo = ruta.endsWith('.pdf') ? '/exports/pdf/' : '/exports/';
         await descargarArchivo(ruta, `${nombre}${ext}`, prefijo);
       }
     }
-    setEstado('Export completo ✓', '#4caf50');
+    setEstado('¡Listo! Archivos descargados ✓', '#4caf50');
   } catch (err) {
     setEstado('Error export: ' + err.message, '#f44336');
   } finally {

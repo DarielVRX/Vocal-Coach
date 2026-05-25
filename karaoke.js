@@ -152,7 +152,7 @@ async function cargarReferenciaVocal(vocalsPath) {
 
     while (true) {
       const prog = await (await fetch(`/karaoke/analyze/progress/${init.task_id}`)).json();
-      setEstado(`Analizando vocal... ${prog.progress || 0}%`, '#7c83fd');
+      setEstado(_mensajeAnalisisVocal(prog.progress || 0), '#7c83fd');
 
       if (prog.status === 'completed') {
         _aplicarReferencia(prog.puntos, prog.beat_s, prog.plateaus_ref);
@@ -184,7 +184,16 @@ function _aplicarReferencia(puntos, beat_s, plateaus_ref) {
   }
 }
 
+function _mensajeAnalisisVocal(pct) {
+  if (pct <= 10) return 'Preparando el análisis de la voz...';
+  if (pct <= 40) return `Detectando las notas de la canción... ${pct}%`;
+  if (pct <= 75) return `Calculando el ritmo y el tono... ${pct}%`;
+  if (pct <= 95) return `Terminando el análisis... ${pct}%`;
+  return 'Casi listo...';
+}
+
 async function cargarTranscripcionServidor(vocalsPath) {
+  setEstado('Transcribiendo la letra... puede demorar un poco ☕', '#7c83fd');
   try {
     const data = await (await fetch('/karaoke/transcribe', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -199,6 +208,7 @@ async function cargarTranscripcionServidor(vocalsPath) {
 }
 
 async function cargarInstrumentalServidor(accompPath) {
+  setEstado('Cargando el fondo musical...', '#7c83fd');
   try {
     const filename = accompPath.split('/').pop();
     const buf      = await (await fetch(`/stems/${filename}`)).arrayBuffer();
