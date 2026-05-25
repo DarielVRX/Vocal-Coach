@@ -351,6 +351,18 @@ function _tnCentsHoriz(ctx, W, H) {
     _tnResizeTimer = setTimeout(refresh, 80);
   });
   window.addEventListener('load', () => setTimeout(refresh, 60));
+  if (typeof ResizeObserver !== 'undefined') {
+    const ro = new ResizeObserver(() => {
+      clearTimeout(_tnResizeTimer);
+      _tnResizeTimer = setTimeout(refresh, 30);
+    });
+    document.addEventListener('DOMContentLoaded', () => {
+      const m = document.getElementById('strip-midi');
+      const c = document.getElementById('strip-cents');
+      if (m) ro.observe(m);
+      if (c) ro.observe(c);
+    });
+  }
 })();
 
 // ── Estado y barras ───────────────────────────────────────────────────────────
