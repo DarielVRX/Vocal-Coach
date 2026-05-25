@@ -62,7 +62,7 @@ const TimelineDraw = {
             if (!sos) {
                 const oct = Math.floor(midi / 12) - 1;
                 ctx.fillStyle = esC ? '#7c83fd' : '#333';
-                ctx.font      = `${esC ? 'bold ' : ''}${Math.max(9, pxS * 0.7)}px monospace`;
+                ctx.font      = `${esC ? 'bold ' : ''}${Math.max(6, pxS * 0.175)}px monospace`;
                 ctx.textAlign = 'right';
                 ctx.fillText(`${nota}${oct}`, labelW - 3, y + pxS * 0.75);
             }
