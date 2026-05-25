@@ -141,9 +141,66 @@ h1 { font-size: 1.1rem; color: #888; letter-spacing: 3px; margin-top: 6px; }
   margin-left: 6px; vertical-align: middle;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Columnas desktop ── */
+#col-controls {
+  display: flex; flex-direction: column; gap: 10px;
+  width: 100%; max-width: 420px;
+}
+#col-timeline {
+  width: 100%; max-width: 420px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+/* Tuner canvas */
+#tuner-canvas { display: block; width: 100%; height: 80px; border-radius: 10px; }
+/* Canvas row + barras desktop */
+#tl-canvas-row { display: flex; align-items: stretch; }
+#tl-vbar-wrap { display: none; width: 14px; }
+#tl-vbar {
+  width: 14px; flex: 1;
+  writing-mode: vertical-lr; direction: rtl;
+  -webkit-appearance: slider-vertical;
+  background: #1a1a1a; border-radius: 7px;
+  outline: none; cursor: pointer; border: none;
+}
+#tl-vbar::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 28px;
+  background: #444; border-radius: 7px; cursor: grab;
+}
+#tl-hbar-row { display: none; padding-left: 36px; padding-right: 14px; }
+#tl-hbar {
+  width: 100%; height: 14px;
+  -webkit-appearance: none; appearance: none;
+  background: #1a1a1a; border-radius: 7px;
+  outline: none; cursor: pointer; border: none;
+}
+#tl-hbar::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 28px; height: 14px;
+  background: #444; border-radius: 7px; cursor: grab;
+}
+#tl-hbar::-moz-range-thumb, #tl-vbar::-moz-range-thumb {
+  width: 28px; height: 14px; background: #444;
+  border-radius: 7px; border: none; cursor: grab;
+}
+@media (min-width: 768px) {
+  body { flex-direction: row; align-items: flex-start; padding: 16px; gap: 16px; }
+  #col-controls {
+    flex: 0 0 360px; max-width: 360px;
+    position: sticky; top: 16px;
+    max-height: calc(100vh - 32px); overflow-y: auto;
+    scrollbar-width: none;
+  }
+  #col-controls::-webkit-scrollbar { display: none; }
+  #col-controls > * { max-width: none !important; }
+  #col-timeline { flex: 1; min-width: 0; max-width: none; }
+  #tl-vbar-wrap { display: flex !important; }
+  #tl-hbar-row  { display: block !important; }
+}
 </style>
 </head>
 <body>
+
+<div id="col-controls">
 
 <h1>VOCAL COACH</h1>
 
@@ -156,30 +213,7 @@ h1 { font-size: 1.1rem; color: #888; letter-spacing: 3px; margin-top: 6px; }
   <div id="rms-bg"><div id="rms-bar"></div></div>
 </div>
 
-<div id="tuner-wrap" style="width:100%;max-width:420px;">
-  <div id="tuner-bg" style="
-    position:relative; width:100%; height:20px;
-    background:#111; border-radius:10px; overflow:hidden;
-  ">
-    <!-- Zona central verde -->
-    <div style="
-      position:absolute; left:50%; transform:translateX(-50%);
-      width:10%; height:100%; background:#1b3a1b; border-radius:4px;
-    "></div>
-    <!-- Aguja -->
-    <div id="tuner-needle" style="
-      position:absolute; top:0; width:3px; height:100%;
-      background:#333; border-radius:2px;
-      left:50%; transform:translateX(-50%);
-      transition:left 0.08s ease-out, background 0.15s;
-    "></div>
-    <!-- Etiqueta cents -->
-    <div id="tuner-label" style="
-      position:absolute; right:8px; top:50%; transform:translateY(-50%);
-      font-size:0.7rem; color:#555; font-variant-numeric:tabular-nums;
-    ">—</div>
-  </div>
-</div>
+<canvas id="tuner-canvas"></canvas>
 
 <div id="btns">
   <button class="btn" id="btn-rec"  onclick="toggleRec()" disabled>● REC</button>
@@ -239,6 +273,10 @@ h1 { font-size: 1.1rem; color: #888; letter-spacing: 3px; margin-top: 6px; }
   <div id="letra-linea-next"></div>
 </div>
 
+</div><!-- /#col-controls -->
+
+<div id="col-timeline">
+
 <div id="timeline-wrap">
   <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px 4px;">
     <span id="timeline-titulo" style="font-size:0.7rem;color:#555;letter-spacing:1px;">TIMELINE VOCAL</span>
@@ -250,7 +288,15 @@ h1 { font-size: 1.1rem; color: #888; letter-spacing: 3px; margin-top: 6px; }
       <span id="zoom-val" style="min-width:36px;color:#7c83fd;font-variant-numeric:tabular-nums;">80px</span>
     </label>
   </div>
-  <canvas id="vocal-canvas" style="display:block;width:100%;"></canvas>
+  <div id="tl-canvas-row">
+    <canvas id="vocal-canvas" style="display:block;flex:1;min-width:0;"></canvas>
+    <div id="tl-vbar-wrap">
+      <input id="tl-vbar" type="range" min="36" max="84" value="72" step="0.5" orient="vertical">
+    </div>
+  </div>
+  <div id="tl-hbar-row">
+    <input id="tl-hbar" type="range" min="0" max="1000" value="0" step="1">
+  </div>
 </div>
 
 <div id="diag-wrap">
@@ -258,6 +304,8 @@ h1 { font-size: 1.1rem; color: #888; letter-spacing: 3px; margin-top: 6px; }
   <div id="diag-general"></div>
   <div id="diag-rows"></div>
 </div>
+
+</div><!-- /#col-timeline -->
 
 <script src="/static/timeline-zoom.js"></script>
 <script src="/static/timeline-draw.js"></script>

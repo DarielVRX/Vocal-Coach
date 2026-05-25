@@ -61,12 +61,17 @@ class VocalTimeline {
         window.addEventListener('resize', () => this._resize());
         this._bindScroll();
         this._loop();
+        this._initScrollbars();
     }
 
     _resize() {
-        const w = this.canvas.parentElement.clientWidth || 420;
+        const w         = this.canvas.parentElement.clientWidth || 420;
+        const isDesktop = window.innerWidth >= 768;
         this.canvas.width  = w;
-        this.canvas.height = Math.min(260, window.innerHeight * 0.32);
+        this.canvas.height = isDesktop
+            ? Math.max(300, Math.min(700, window.innerHeight - 180))
+            : Math.min(260, window.innerHeight * 0.32);
+        if (this._vbar) this._vbar.style.height = this.canvas.height + 'px';
     }
 
     // ── API pública ───────────────────────────────────────────────────────
@@ -321,10 +326,44 @@ class VocalTimeline {
         this.scrollY = this.topMidi - (this.MIDI_MAX - semi / 2);
     }
 
+    // ── Scrollbars desktop ────────────────────────────────────────────
+
+    _initScrollbars() {
+        const hbar = document.getElementById('tl-hbar');
+        const vbar = document.getElementById('tl-vbar');
+        this._hbar = hbar || null;
+        this._vbar = vbar || null;
+        this._hDrag = false;
+        this._vDrag = false;
+        if (hbar) {
+            hbar.addEventListener('pointerdown', () => { this._hDrag = true; });
+            window.addEventListener('pointerup',  () => { this._hDrag = false; });
+            hbar.addEventListener('input', () => { this.scrollX = +hbar.value; });
+        }
+        if (vbar) {
+            vbar.addEventListener('pointerdown', () => { this._vDrag = true; });
+            window.addEventListener('pointerup',  () => { this._vDrag = false; });
+            vbar.addEventListener('input', () => { this.topMidi = +vbar.value; });
+        }
+    }
+
+    _syncScrollbars() {
+        if (!this._hbar) return;
+        const maxX = Math.max(1, this._duracionTotal() * this.PX_SEG - (this.canvas.width - 36));
+        this._hbar.max = maxX;
+        if (!this._hDrag) this._hbar.value = this.scrollX;
+        if (this._vbar) {
+            this._vbar.min = this.MIDI_MIN + this._zoom.visibleSemi;
+            this._vbar.max = this.MIDI_MAX;
+            if (!this._vDrag) this._vbar.value = this.topMidi;
+        }
+    }
+
     // ── Loop ──────────────────────────────────────────────────────────────
 
     _loop() {
         this._draw();
+        this._syncScrollbars();
         requestAnimationFrame(() => this._loop());
     }
 
