@@ -64,9 +64,18 @@ class VocalTimeline {
     }
 
     _resize() {
-        const w = this.canvas.parentElement.clientWidth || 420;
-        this.canvas.width  = w;
-        this.canvas.height = Math.min(260, window.innerHeight * 0.32);
+        const r = this.canvas.getBoundingClientRect();
+        const w = Math.round(r.width);
+        const h = Math.round(r.height);
+        if (w > 0) this.canvas.width  = w;
+        if (h > 0) this.canvas.height = h;
+    }
+
+    _nowX() {
+        if (window._modoKaraoke && this.grabando) {
+            return Math.round(36 + (this.canvas.width - 36) * 0.30);
+        }
+        return this.canvas.width;
     }
 
     // ── API pública ───────────────────────────────────────────────────────
@@ -320,6 +329,17 @@ class VocalTimeline {
                                 Math.min(this.MIDI_MAX, this.topMidi - deltaY / pxS));
         this.scrollY = this.topMidi - (this.MIDI_MAX - semi / 2);
     }
+
+    // ── Scrollbars desktop ────────────────────────────────────────────
+
+    _initScrollbars() {
+        this._hbar = null;
+        this._vbar = null;
+        this._hDrag = false;
+        this._vDrag = false;
+    }
+
+    _syncScrollbars() { }
 
     // ── Loop ──────────────────────────────────────────────────────────────
 

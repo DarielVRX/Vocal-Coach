@@ -97,15 +97,47 @@ const TimelineZoom = {
             }
         }
 
-        // Centrar en referencia si existe, si no en centro calibrado
-        const centroRef = this._centroRef();
-        const topTarget = (centroRef !== null ? centroRef : z.centro) + z.visibleSemi / 2;
-        this.topMidi += (topTarget - this.topMidi) * 0.08;
-        this.topMidi  = Math.max(this.MIDI_MIN + z.visibleSemi,
-                                 Math.min(this.MIDI_MAX, this.topMidi));
+        // ── Centrado y zoom dinámico ──────────────────────────────────────
+        // En karaoke grabando: anticipa notas futuras de la referencia
+        // En libre grabando: respuesta más rápida al pitch actual
+        const centroRef = (window._modoKaraoke && this.grabando)
+            ? this._centroRefFuturo(t)
+            : this._centroRef();
+
+        let semiTarget, topTarget;
+
+        if (centroRef !== null && z.centro !== null && Math.abs(centroRef - z.centro) > 2) {
+            const hi = Math.max(centroRef, z.centro) + MARGEN_SEMI + 1;
+            const lo = Math.min(centroRef, z.centro) - MARGEN_SEMI - 1;
+            semiTarget = Math.min(this.TOTAL_SEMITONOS, Math.max(SEMI_NORMAL, hi - lo));
+            topTarget  = hi;
+        } else {
+            semiTarget = z.fase === 'zoomout' ? SEMI_OUT : SEMI_NORMAL;
+            topTarget  = (centroRef !== null ? centroRef : z.centro) + semiTarget / 2;
+        }
+
+        // Karaoke: lerp lento (anticipa suavemente la nota que llega)
+        // Libre grabando: lerp más rápido (respuesta inmediata al pitch)
+        const alphaZoom = (this.grabando && !window._modoKaraoke) ? 0.10 : ALPHA_ZOOM;
+        const alphaTop  = (this.grabando && !window._modoKaraoke) ? 0.14 : 0.05;
+
+        z.visibleSemi += (semiTarget - z.visibleSemi) * alphaZoom;
+        this.topMidi  += (topTarget  - this.topMidi)  * alphaTop;
+        this.topMidi   = Math.max(this.MIDI_MIN + z.visibleSemi,
+                                  Math.min(this.MIDI_MAX, this.topMidi));
     },
 
     // ── Helpers ───────────────────────────────────────────────────────────
+
+    _centroRefFuturo(tAhora) {
+        if (!this.plateausRef?.length) return this._centroRef();
+        const upcoming = this.plateausRef.filter(p => {
+            const t = p.t_inicio ?? p.t_ini;
+            return t > tAhora && t < tAhora + 2.5;
+        });
+        if (!upcoming.length) return this._centroRef();
+        return this._mediana(upcoming.map(p => p.mediana_midi));
+    },
 
     _centroRef() {
         if ((this.plateausRef || []).length > 0) {
